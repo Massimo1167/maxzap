@@ -1,5 +1,0 @@
-site_name: maxzap
-site_description: Personal workflow management
-docs_dir: .
-nav:
-  - Home: index.md
