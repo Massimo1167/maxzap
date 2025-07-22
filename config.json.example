@@ -1,0 +1,24 @@
+{
+  "workflow": {
+    "name": "sample workflow",
+    "steps": [
+      {
+        "id": "setup",
+        "description": "Initialize environment",
+        "command": "scripts/setup.sh"
+      },
+      {
+        "id": "build",
+        "description": "Build the project",
+        "command": "scripts/build.sh",
+        "depends_on": ["setup"]
+      },
+      {
+        "id": "deploy",
+        "description": "Deploy to production",
+        "command": "scripts/deploy.sh",
+        "depends_on": ["build"]
+      }
+    ]
+  }
+}
