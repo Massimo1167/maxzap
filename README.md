@@ -1,26 +1,21 @@
 # PyZap
 
-PyZap is a small command line application for automating personal workflows.
+PyZap is a monolithic workflow automation tool inspired by Zapier. This repository
+contains a minimal skeleton implementing plugin-based triggers and actions,
+a command line interface, and a small Flask web dashboard.
 
-## Project Layout
+```
+pyzap/
+  core.py          - workflow engine and main loop
+  cli.py           - command line interface
+  webapp.py        - minimal Flask dashboard
+  formatter.py     - data transformation utilities
+  plugins/         - trigger and action implementations
 
-- `pyzap/` - Python package containing the library and CLI entry points.
-- `workflows/` - Example workflow files that can be enabled or customized.
-- `README.md` - Project documentation.
-
-## Usage
-
-Install the project locally and run the CLI:
-
-```bash
-pip install -e .
-pyzap --help
+config.json.example - example workflow configuration
+tests/              - pytest scaffolding
+docs/               - MkDocs documentation skeleton
 ```
 
-To enable and run a workflow:
-
-```bash
-pyzap run my_workflow
-```
-
-Workflows can be placed in the `workflows/` directory and referenced by name.
+This code base is a starting point only. Business logic for each plugin must be
+implemented along with authentication credentials for external services.
