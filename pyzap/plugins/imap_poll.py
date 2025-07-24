@@ -28,6 +28,7 @@ class ImapPollTrigger(BaseTrigger):
         password = self.config.get("password")
         mailbox = self.config.get("mailbox", "INBOX")
         search = self.config.get("search", "UNSEEN")
+
         logging.info(
             "Polling IMAP %s mailbox %s with search '%s'",
             host,
@@ -42,6 +43,7 @@ class ImapPollTrigger(BaseTrigger):
         try:
             with imaplib.IMAP4_SSL(host) as client:
                 client.login(username, password)
+
                 logging.info("Logged in to %s as %s", host, username)
                 client.select(mailbox)
                 status, data = client.search(None, search)
@@ -62,6 +64,7 @@ class ImapPollTrigger(BaseTrigger):
                         "body": msg.get_payload(decode=True).decode(errors="replace"),
                     }
                     messages.append(payload)
+
                     logging.debug("Fetched IMAP message %s", num.decode())
                 logging.info("IMAP polling returned %d messages", len(messages))
                 return messages
