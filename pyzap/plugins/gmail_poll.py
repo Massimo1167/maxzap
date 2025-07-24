@@ -1,6 +1,12 @@
-"""Gmail polling trigger."""
+"""Gmail polling trigger implementation."""
 
+from __future__ import annotations
+
+import logging
 from typing import Any, Dict, List
+
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 
 from ..core import BaseTrigger
 
@@ -9,6 +15,40 @@ class GmailPollTrigger(BaseTrigger):
     """Poll Gmail using the Gmail API."""
 
     def poll(self) -> List[Dict[str, Any]]:
-        # TODO: Implement Gmail API polling with OAuth2
-        # Return list of message payloads with unique 'id'
-        return []
+        """Return unread messages matching the configured query.
+
+        The configuration should provide:
+        - ``token_file``: path to a Gmail OAuth2 token JSON file.
+        - ``query``: Gmail search query string.
+
+        Only a very small subset of the Gmail API is used here to keep the
+        implementation lightweight. Errors are logged and an empty list is
+        returned if polling fails.
+        """
+
+        token_path = self.config.get("token_file", "token.json")
+        query = self.config.get("query", "label:inbox")
+
+        try:
+            creds = Credentials.from_authorized_user_file(token_path, [
+                "https://www.googleapis.com/auth/gmail.readonly"
+            ])
+            if creds.expired and creds.refresh_token:
+                creds.refresh()  # type: ignore[attr-defined]
+            service = build("gmail", "v1", credentials=creds)
+            result = service.users().messages().list(userId="me", q=query).execute()
+            messages = []
+            for item in result.get("messages", []):
+                msg_id = item["id"]
+                msg = (
+                    service.users()
+                    .messages()
+                    .get(userId="me", id=msg_id, format="full")
+                    .execute()
+                )
+                msg["id"] = msg_id
+                messages.append(msg)
+            return messages
+        except Exception as exc:  # pylint: disable=broad-except
+            logging.exception("Gmail polling failed: %s", exc)
+            return []
