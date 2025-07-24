@@ -125,7 +125,12 @@ class WorkflowEngine:
 
 def setup_logging(log_file: str = "pyzap.log") -> None:
     handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=3)
-    logging.basicConfig(level=logging.INFO, handlers=[handler])
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=[handler],
+    )
 
 
 def to_snake_case(name: str) -> str:
