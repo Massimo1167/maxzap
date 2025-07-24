@@ -3,3 +3,5 @@ __pycache__/
 pyzap.log
 .env
 credentials.json
+credentials.json.old
+token.json

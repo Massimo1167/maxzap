@@ -35,7 +35,7 @@ class GmailPollTrigger(BaseTrigger):
             ])
             if creds.expired and creds.refresh_token:
                 creds.refresh()  # type: ignore[attr-defined]
-            service = build("gmail", "v1", credentials=creds)
+            service = build("gmail", "v1", credentials=creds,cache_discovery=False)
             result = service.users().messages().list(userId="me", q=query).execute()
             messages = []
             for item in result.get("messages", []):
