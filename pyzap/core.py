@@ -3,6 +3,7 @@
 import importlib
 import json
 import logging
+import re
 import os
 import threading
 import time
@@ -121,6 +122,12 @@ def setup_logging(log_file: str = "pyzap.log") -> None:
     logging.basicConfig(level=logging.INFO, handlers=[handler])
 
 
+def to_snake_case(name: str) -> str:
+    """Convert CamelCase string to snake_case."""
+    # Example: "GmailPoll" -> "gmail_poll"
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+
 def load_plugins() -> None:
     plugins_dir = Path(__file__).parent / "plugins"
     for path in plugins_dir.glob("*.py"):
@@ -131,9 +138,11 @@ def load_plugins() -> None:
         for attr in dir(module):
             obj = getattr(module, attr)
             if isinstance(obj, type) and issubclass(obj, BaseTrigger) and obj is not BaseTrigger:
-                TRIGGERS[obj.__name__.replace("Trigger", "")] = obj
+                plugin_name = obj.__name__.replace("Trigger", "")
+                TRIGGERS[to_snake_case(plugin_name)] = obj
             if isinstance(obj, type) and issubclass(obj, BaseAction) and obj is not BaseAction:
-                ACTIONS[obj.__name__.replace("Action", "")] = obj
+                plugin_name = obj.__name__.replace("Action", "")
+                ACTIONS[to_snake_case(plugin_name)] = obj
 
 
 def main_loop(config_path: str) -> None:

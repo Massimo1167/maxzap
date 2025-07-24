@@ -2,8 +2,7 @@
 
 from flask import Flask, jsonify, render_template_string, request
 
-from .cli import load_config, save_config
-from .core import main_loop
+from .config import load_config, save_config
 
 app = Flask(__name__)
 CONFIG_PATH = "config.json"

@@ -3,13 +3,16 @@
     "id": "example-zap",
     "trigger": {
       "type": "gmail_poll",
-      "query": "label:inbox",
+      "query": "from:centrella.pierino@gmail.com is:unread",
       "interval": 60
     },
     "actions": [
-      {"type": "gdrive_upload", "params": {"folder_id": ""}},
-      {"type": "sheets_append", "params": {"sheet_id": "", "range": "Sheet1!A:B"}},
-      {"type": "slack_notify", "params": {"webhook_url": ""}}
+      {
+        "type": "g_drive_upload",
+        "params": {"folder_id": "${GDRIVE_FOLDER_ID}"}
+      },
+      {"type": "sheets_append", "params": {"sheet_id": "${GSHEET_ID}", "range": "Foglio1!A:B"}},
+      {"type": "slack_notify", "params": {"webhook_url": "${SLACK_WEBHOOK_URL}"}}
     ]
   }
 ]

@@ -2,20 +2,10 @@
 
 import argparse
 import json
-from pathlib import Path
 
 from .core import main_loop
-
-
-def load_config(path: str) -> list:
-    with open(path, "r", encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-def save_config(path: str, workflows: list) -> None:
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(workflows, fh, indent=2)
-
+from .config import load_config, save_config
+from .webapp import app as webapp_app
 
 def list_workflows(args: argparse.Namespace) -> None:
     workflows = load_config(args.config)
@@ -46,6 +36,18 @@ def set_workflow_state(args: argparse.Namespace, enabled: bool) -> None:
     print(f"Workflow {args.id} {state}")
 
 
+def run_engine(args: argparse.Namespace) -> None:
+    """Starts the main workflow engine."""
+    print("Starting PyZap engine...")
+    main_loop(args.config)
+
+
+def run_dashboard(args: argparse.Namespace) -> None:
+    """Starts the Flask web dashboard."""
+    print("Starting PyZap dashboard on http://127.0.0.1:5000")
+    webapp_app.run(debug=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="pyzap")
     parser.add_argument("config", nargs="?", default="config.json", help="Config file path")
@@ -67,12 +69,12 @@ def main() -> None:
     sub_disable.set_defaults(func=lambda a: set_workflow_state(a, False))
 
     sub_run = sub.add_parser("run")
-    sub_run.add_argument("id")
+    sub_run.set_defaults(func=run_engine)
+
+    sub_dashboard = sub.add_parser("dashboard", help="Run the web dashboard")
+    sub_dashboard.set_defaults(func=run_dashboard)
 
     args = parser.parse_args()
-    if args.command == "run":
-        main_loop(args.config)
-        return
     if hasattr(args, "func"):
         args.func(args)
     else:
