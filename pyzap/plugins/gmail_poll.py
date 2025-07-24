@@ -28,6 +28,7 @@ class GmailPollTrigger(BaseTrigger):
 
         token_path = self.config.get("token_file", "token.json")
         query = self.config.get("query", "label:inbox")
+        logging.info("Polling Gmail using %s with query '%s'", token_path, query)
 
         try:
             creds = Credentials.from_authorized_user_file(token_path, [
@@ -48,6 +49,8 @@ class GmailPollTrigger(BaseTrigger):
                 )
                 msg["id"] = msg_id
                 messages.append(msg)
+                logging.debug("Fetched Gmail message %s", msg_id)
+            logging.info("Gmail polling returned %d messages", len(messages))
             return messages
         except Exception as exc:  # pylint: disable=broad-except
             logging.exception("Gmail polling failed: %s", exc)

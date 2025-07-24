@@ -58,7 +58,10 @@ class Workflow:
         self.seen_ids = set()
 
     def run(self) -> None:
-        for payload in self.trigger.poll():
+        logging.info("Running workflow %s using %s", self.id, type(self.trigger).__name__)
+        messages = self.trigger.poll()
+        logging.info("Trigger returned %d messages", len(messages))
+        for payload in messages:
             msg_id = payload.get("id")
             if msg_id and msg_id in self.seen_ids:
                 continue
@@ -70,6 +73,7 @@ class Workflow:
 
                     normalized = normalize(payload)
                     action.execute(normalized)
+                    logging.info("Action %s executed successfully", type(action).__name__)
                 except Exception as exc:  # pylint: disable=broad-except
                     logging.exception("Action %s failed: %s", action, exc)
 
@@ -87,6 +91,7 @@ class WorkflowEngine:
         self.workflows = [Workflow(defn) for defn in data]
 
     def run_all(self) -> None:
+        logging.info("Running %d workflows", len(self.workflows))
         threads = []
         for wf in self.workflows:
             t = threading.Thread(target=self._run_workflow, args=(wf,), daemon=True)
@@ -101,6 +106,7 @@ class WorkflowEngine:
         while retry <= max_retries and not self._stop_event.is_set():
             try:
                 workflow.run()
+                logging.info("Workflow %s completed", workflow.id)
                 break
             except Exception as exc:  # pylint: disable=broad-except
                 retry += 1
