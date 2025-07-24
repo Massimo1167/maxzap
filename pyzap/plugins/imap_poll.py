@@ -29,6 +29,13 @@ class ImapPollTrigger(BaseTrigger):
         mailbox = self.config.get("mailbox", "INBOX")
         search = self.config.get("search", "UNSEEN")
 
+        logging.info(
+            "Polling IMAP %s mailbox %s with search '%s'",
+            host,
+            mailbox,
+            search,
+        )
+
         if not host or not username or not password:
             logging.error("IMAP configuration incomplete")
             return []
@@ -36,10 +43,14 @@ class ImapPollTrigger(BaseTrigger):
         try:
             with imaplib.IMAP4_SSL(host) as client:
                 client.login(username, password)
+
+                logging.info("Logged in to %s as %s", host, username)
                 client.select(mailbox)
                 status, data = client.search(None, search)
                 if status != "OK":
+                    logging.error("IMAP search failed: %s", status)
                     return []
+                logging.info("IMAP search returned %d messages", len(data[0].split()))
                 messages = []
                 for num in data[0].split():
                     status, msg_data = client.fetch(num, "(RFC822)")
@@ -53,6 +64,9 @@ class ImapPollTrigger(BaseTrigger):
                         "body": msg.get_payload(decode=True).decode(errors="replace"),
                     }
                     messages.append(payload)
+
+                    logging.debug("Fetched IMAP message %s", num.decode())
+                logging.info("IMAP polling returned %d messages", len(messages))
                 return messages
         except Exception as exc:  # pylint: disable=broad-except
             logging.exception("IMAP polling failed: %s", exc)

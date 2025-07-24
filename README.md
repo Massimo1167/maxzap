@@ -30,3 +30,10 @@ Two built-in triggers allow fetching messages from email servers:
 * `imap_poll` &ndash; connects to any IMAP server using username and password.
   Required options are `host`, `username` and `password`. Optional keys are
   `mailbox` (defaults to `INBOX`) and `search` (defaults to `UNSEEN`).
+
+## Logging
+
+Runtime logs are written to `pyzap.log` with level `INFO`. Each workflow
+reports when it polls for messages, the number of messages found and whether
+actions succeed or fail. This helps troubleshoot the engine while it runs in
+endless polling mode.
