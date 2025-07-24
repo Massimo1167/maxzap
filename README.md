@@ -19,3 +19,14 @@ docs/               - MkDocs documentation skeleton
 
 This code base is a starting point only. Business logic for each plugin must be
 implemented along with authentication credentials for external services.
+
+## Email polling triggers
+
+Two built-in triggers allow fetching messages from email servers:
+
+* `gmail_poll` &ndash; uses the Gmail API with an OAuth2 token. Provide a
+  `token_file` path in the trigger configuration and optionally a search
+  `query`.
+* `imap_poll` &ndash; connects to any IMAP server using username and password.
+  Required options are `host`, `username` and `password`. Optional keys are
+  `mailbox` (defaults to `INBOX`) and `search` (defaults to `UNSEEN`).
