@@ -57,7 +57,7 @@ def _setup_google(monkeypatch, success=True):
                 return self.data
 
         class Messages:
-            def list(self, userId="me", q=None):
+            def list(self, userId="me", q=None, maxResults=None):
                 return Execute({"messages": [{"id": "1"}]})
 
             def get(self, userId="me", id=None, format="full"):

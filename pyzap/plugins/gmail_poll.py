@@ -21,6 +21,7 @@ class GmailPollTrigger(BaseTrigger):
         The configuration should provide:
         - ``token_file``: path to a Gmail OAuth2 token JSON file.
         - ``query``: Gmail search query string.
+        - ``max_results`` (optional): maximum number of messages to return.
 
         Only a very small subset of the Gmail API is used here to keep the
         implementation lightweight. Errors are logged and an empty list is
@@ -29,6 +30,7 @@ class GmailPollTrigger(BaseTrigger):
 
         token_path = self.config.get("token_file", "token.json")
         query = self.config.get("query", "label:inbox")
+        max_results = int(self.config.get("max_results", 100))
 
         logging.info("Polling Gmail using %s with query '%s'", token_path, query)
         logging.debug("Loading credentials from %s", token_path)
@@ -50,7 +52,12 @@ class GmailPollTrigger(BaseTrigger):
             )
 
             logging.debug("Querying Gmail API")
-            result = service.users().messages().list(userId="me", q=query).execute()
+            result = (
+                service.users()
+                .messages()
+                .list(userId="me", q=query, maxResults=max_results)
+                .execute()
+            )
             logging.debug("Gmail API returned %s", result)
             messages = []
             for item in result.get("messages", []):
