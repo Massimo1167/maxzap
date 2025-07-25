@@ -8,9 +8,13 @@ import os
 import threading
 import time
 from abc import ABC, abstractmethod
+from email.message import EmailMessage
+import smtplib
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Dict, List, Type
+
+from .config import load_config
 
 # Plugin registries
 TRIGGERS: Dict[str, Type["BaseTrigger"]] = {}
@@ -96,14 +100,24 @@ class WorkflowEngine:
         self.config_path = config_path
         self.workflows: List[Workflow] = []
         self.step_mode = step_mode
+        self.admin_email = None
+        self.smtp_config: Dict[str, Any] = {}
         self.load_config()
         self._stop_event = threading.Event()
         self._last_run: Dict[str, float] = {}
 
     def load_config(self) -> None:
-        with open(self.config_path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-        self.workflows = [Workflow(defn, step_mode=self.step_mode) for defn in data]
+        data = load_config(self.config_path)
+        if isinstance(data, list):
+            config = {"workflows": data}
+        else:
+            config = data
+
+        self.admin_email = config.get("admin_email")
+        self.smtp_config = config.get("smtp", {})
+
+        wf_defs = config.get("workflows", [])
+        self.workflows = [Workflow(defn, step_mode=self.step_mode) for defn in wf_defs]
 
     def run_all(self) -> None:
         logging.debug("Engine cycle running %d workflows", len(self.workflows))
@@ -130,7 +144,36 @@ class WorkflowEngine:
             self.notify_admin(workflow.id)
 
     def notify_admin(self, workflow_id: str) -> None:
-        # TODO: Send email via local SMTP
+        """Send a failure notification email to the administrator."""
+        if not self.admin_email:
+            logging.error("Admin email not configured")
+            logging.error("Workflow %s failed after retries", workflow_id)
+            return
+
+        message = EmailMessage()
+        message["Subject"] = f"PyZap workflow {workflow_id} failed"
+        message["From"] = self.smtp_config.get("from_addr", self.admin_email)
+        message["To"] = self.admin_email
+        message.set_content(
+            f"Workflow {workflow_id} failed after maximum retries."
+        )
+
+        host = self.smtp_config.get("host", "localhost")
+        port = int(self.smtp_config.get("port", 25))
+        username = self.smtp_config.get("username")
+        password = self.smtp_config.get("password")
+        use_tls = self.smtp_config.get("tls")
+
+        try:
+            with smtplib.SMTP(host, port) as smtp:
+                if use_tls:
+                    smtp.starttls()
+                if username and password:
+                    smtp.login(username, password)
+                smtp.send_message(message)
+                logging.info("Admin notification sent for workflow %s", workflow_id)
+        except Exception as exc:  # pylint: disable=broad-except
+            logging.exception("Failed to send admin notification: %s", exc)
         logging.error("Workflow %s failed after retries", workflow_id)
 
     def stop(self) -> None:

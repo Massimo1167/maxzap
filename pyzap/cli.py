@@ -7,31 +7,46 @@ from .core import main_loop
 from .config import load_config, save_config
 from .webapp import app as webapp_app
 
+def _get_workflows(path: str):
+    cfg = load_config(path)
+    return cfg.get("workflows", []) if isinstance(cfg, dict) else cfg
+
+
 def list_workflows(args: argparse.Namespace) -> None:
-    workflows = load_config(args.config)
+    workflows = _get_workflows(args.config)
     for wf in workflows:
         status = "enabled" if wf.get("enabled", True) else "disabled"
         print(f"{wf['id']} - {status}")
 
 
 def create_workflow(args: argparse.Namespace) -> None:
-    workflows = load_config(args.config)
+    config = load_config(args.config)
+    workflows = config.get("workflows", []) if isinstance(config, dict) else config
     with open(args.file, "r", encoding="utf-8") as fh:
         new_wf = json.load(fh)
     workflows.append(new_wf)
-    save_config(args.config, workflows)
+    if isinstance(config, dict):
+        config["workflows"] = workflows
+        save_config(args.config, config)
+    else:
+        save_config(args.config, workflows)
     print(f"Added workflow {new_wf['id']}")
 
 
 def set_workflow_state(args: argparse.Namespace, enabled: bool) -> None:
-    workflows = load_config(args.config)
+    config = load_config(args.config)
+    workflows = config.get("workflows", []) if isinstance(config, dict) else config
     for wf in workflows:
         if wf["id"] == args.id:
             wf["enabled"] = enabled
             break
     else:
         raise SystemExit(f"Workflow {args.id} not found")
-    save_config(args.config, workflows)
+    if isinstance(config, dict):
+        config["workflows"] = workflows
+        save_config(args.config, config)
+    else:
+        save_config(args.config, workflows)
     state = "enabled" if enabled else "disabled"
     print(f"Workflow {args.id} {state}")
 

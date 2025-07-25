@@ -1,18 +1,27 @@
-[
-  {
-    "id": "example-zap",
-    "trigger": {
-      "type": "gmail_poll",
-      "query": "from:centrella.pierino@gmail.com is:unread",
-      "interval": 60
-    },
-    "actions": [
-      {
-        "type": "g_drive_upload",
-        "params": {"folder_id": "${GDRIVE_FOLDER_ID}"}
+{
+  "admin_email": "${ADMIN_EMAIL}",
+  "smtp": {
+    "host": "${SMTP_HOST}",
+    "port": "${SMTP_PORT}",
+    "username": "${SMTP_USERNAME}",
+    "password": "${SMTP_PASSWORD}"
+  },
+  "workflows": [
+    {
+      "id": "example-zap",
+      "trigger": {
+        "type": "gmail_poll",
+        "query": "from:centrella.pierino@gmail.com is:unread",
+        "interval": 60
       },
-      {"type": "sheets_append", "params": {"sheet_id": "${GSHEET_ID}", "range": "Foglio1!A:B"}},
-      {"type": "slack_notify", "params": {"webhook_url": "${SLACK_WEBHOOK_URL}"}}
-    ]
-  }
-]
+      "actions": [
+        {
+          "type": "g_drive_upload",
+          "params": {"folder_id": "${GDRIVE_FOLDER_ID}"}
+        },
+        {"type": "sheets_append", "params": {"sheet_id": "${GSHEET_ID}", "range": "Foglio1!A:B"}},
+        {"type": "slack_notify", "params": {"webhook_url": "${SLACK_WEBHOOK_URL}"}}
+      ]
+    }
+  ]
+}

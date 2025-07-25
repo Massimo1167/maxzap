@@ -70,3 +70,39 @@ def test_engine_interval(monkeypatch, tmp_path):
     monkeypatch.setattr(core.time, "time", lambda: 120)
     engine.run_all()
     assert called == ["wf", "wf"]
+
+
+def test_notify_admin(monkeypatch, tmp_path):
+    monkeypatch.setitem(core.TRIGGERS, "dummy", DummyTrigger)
+    config = {
+        "admin_email": "admin@example.com",
+        "smtp": {"host": "localhost", "port": 25},
+        "workflows": []
+    }
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text(json.dumps(config))
+
+    engine = core.WorkflowEngine(str(cfg_path))
+
+    sent = {}
+
+    class DummySMTP:
+        def __init__(self, host, port):
+            sent["host"] = host
+            sent["port"] = port
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+        def send_message(self, msg):
+            sent["to"] = msg["To"]
+            sent["subject"] = msg["Subject"]
+
+    monkeypatch.setattr(core.smtplib, "SMTP", DummySMTP)
+
+    engine.notify_admin("wf1")
+
+    assert sent["to"] == "admin@example.com"
