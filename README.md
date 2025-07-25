@@ -28,6 +28,16 @@ Install the project dependencies using `pip`:
 pip install -r requirements.txt
 ```
 
+## Running Tests
+
+Run the test suite with `pytest` to verify everything works as expected:
+
+```bash
+pytest -vv
+```
+
+The `-vv` flag shows each test result clearly.
+
 ## Configuration
 
 The main configuration file now supports global settings in addition to the
