@@ -56,3 +56,32 @@ def test_gdrive_upload(monkeypatch, tmp_path):
     assert 'upload/drive/v3/files' in req.full_url
     assert req.headers['Authorization'] == 'Bearer TT'
     assert b'hello' in req.data
+
+
+def test_slack_notify_error(monkeypatch):
+    called = False
+
+    def fake(req):
+        nonlocal called
+        called = True
+        raise urllib.error.URLError("fail")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    action = SlackNotifyAction({"webhook_url": "http://example.com"})
+    # Should not raise
+    action.execute({"text": "hi"})
+    assert called
+
+
+def test_slack_notify_missing(monkeypatch):
+    called = False
+
+    def fake(req):
+        nonlocal called
+        called = True
+        return DummyResponse()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    action = SlackNotifyAction({"webhook_url": ""})
+    action.execute({})
+    assert not called
