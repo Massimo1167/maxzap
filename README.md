@@ -20,6 +20,14 @@ docs/               - MkDocs documentation skeleton
 This code base is a starting point only. Business logic for each plugin must be
 implemented along with authentication credentials for external services.
 
+## Installation
+
+Install the project dependencies using `pip`:
+
+```bash
+pip install -r requirements.txt
+```
+
 ## Configuration
 
 The main configuration file now supports global settings in addition to the
