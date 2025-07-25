@@ -39,7 +39,11 @@ def set_workflow_state(args: argparse.Namespace, enabled: bool) -> None:
 def run_engine(args: argparse.Namespace) -> None:
     """Starts the main workflow engine."""
     print("Starting PyZap engine...")
-    main_loop(args.config)
+    main_loop(
+        args.config,
+        log_level=args.log_level,
+        step_mode=args.step,
+    )
 
 
 def run_dashboard(args: argparse.Namespace) -> None:
@@ -69,6 +73,16 @@ def main() -> None:
     sub_disable.set_defaults(func=lambda a: set_workflow_state(a, False))
 
     sub_run = sub.add_parser("run")
+    sub_run.add_argument(
+        "--log-level",
+        default="INFO",
+        help="Logging level (DEBUG, INFO, WARNING, ERROR)",
+    )
+    sub_run.add_argument(
+        "--step",
+        action="store_true",
+        help="Pause for input between workflow steps",
+    )
     sub_run.set_defaults(func=run_engine)
 
     sub_dashboard = sub.add_parser("dashboard", help="Run the web dashboard")

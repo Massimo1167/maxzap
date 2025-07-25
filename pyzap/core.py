@@ -42,7 +42,7 @@ class BaseAction(ABC):
 
 
 class Workflow:
-    def __init__(self, definition: Dict[str, Any]):
+    def __init__(self, definition: Dict[str, Any], *, step_mode: bool = False):
         self.id = definition["id"]
         trigger_conf = definition["trigger"]
         trigger_cls = TRIGGERS.get(trigger_conf["type"])
@@ -56,11 +56,20 @@ class Workflow:
                 raise ValueError(f"Unknown action type {action_def['type']}")
             self.actions.append(action_cls(action_def.get("params", {})))
         self.seen_ids = set()
+        self.interval = int(trigger_conf.get("interval", 60))
+        self.step_mode = step_mode
 
     def run(self) -> None:
-        logging.info("Running workflow %s using %s", self.id, type(self.trigger).__name__)
+        logging.info(
+            "Running workflow %s using %s", self.id, type(self.trigger).__name__
+        )
+        if self.step_mode:
+            input("Press Enter to poll trigger...")
+
         messages = self.trigger.poll()
         logging.info("Trigger returned %d messages", len(messages))
+        if self.step_mode:
+            input("Press Enter to process messages...")
         for payload in messages:
             msg_id = payload.get("id")
             if msg_id and msg_id in self.seen_ids:
@@ -68,37 +77,42 @@ class Workflow:
             if msg_id:
                 self.seen_ids.add(msg_id)
             for action in self.actions:
+                if self.step_mode:
+                    input(f"Press Enter to run action {type(action).__name__}...")
                 try:
                     from .formatter import normalize
 
                     normalized = normalize(payload)
                     action.execute(normalized)
                     logging.info("Action %s executed successfully", type(action).__name__)
+                    if self.step_mode:
+                        input("Press Enter to continue...")
                 except Exception as exc:  # pylint: disable=broad-except
                     logging.exception("Action %s failed: %s", action, exc)
 
 
 class WorkflowEngine:
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str, *, step_mode: bool = False):
         self.config_path = config_path
         self.workflows: List[Workflow] = []
+        self.step_mode = step_mode
         self.load_config()
         self._stop_event = threading.Event()
+        self._last_run: Dict[str, float] = {}
 
     def load_config(self) -> None:
         with open(self.config_path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
-        self.workflows = [Workflow(defn) for defn in data]
+        self.workflows = [Workflow(defn, step_mode=self.step_mode) for defn in data]
 
     def run_all(self) -> None:
-        logging.info("Running %d workflows", len(self.workflows))
-        threads = []
+        logging.debug("Engine cycle running %d workflows", len(self.workflows))
         for wf in self.workflows:
-            t = threading.Thread(target=self._run_workflow, args=(wf,), daemon=True)
-            threads.append(t)
-            t.start()
-        for t in threads:
-            t.join()
+            last = self._last_run.get(wf.id, 0)
+            if time.time() - last < wf.interval:
+                continue
+            self._run_workflow(wf)
+            self._last_run[wf.id] = time.time()
 
     def _run_workflow(self, workflow: Workflow) -> None:
         retry = 0
@@ -123,10 +137,10 @@ class WorkflowEngine:
         self._stop_event.set()
 
 
-def setup_logging(log_file: str = "pyzap.log") -> None:
+def setup_logging(log_file: str = "pyzap.log", *, log_level: int = logging.INFO) -> None:
     handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=3)
     logging.basicConfig(
-        level=logging.INFO,
+        level=log_level,
         format="%(asctime)s - %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         handlers=[handler],
@@ -156,10 +170,11 @@ def load_plugins() -> None:
                 ACTIONS[to_snake_case(plugin_name)] = obj
 
 
-def main_loop(config_path: str) -> None:
-    setup_logging()
+def main_loop(config_path: str, *, log_level: str = "INFO", step_mode: bool = False) -> None:
+    numeric_level = getattr(logging, log_level.upper(), logging.INFO)
+    setup_logging(log_level=numeric_level)
     load_plugins()
-    engine = WorkflowEngine(config_path)
+    engine = WorkflowEngine(config_path, step_mode=step_mode)
     while True:
         try:
             engine.run_all()
