@@ -63,7 +63,8 @@ Two built-in triggers allow fetching messages from email servers:
 
 * `gmail_poll` &ndash; uses the Gmail API with an OAuth2 token. Provide a
   `token_file` path in the trigger configuration and optionally a search
-  `query`.
+  `query`. You may also specify `max_results` to limit the number of
+  messages returned.
 * `imap_poll` &ndash; connects to any IMAP server using username and password.
   Required options are `host`, `username` and `password`. Optional keys are
   `mailbox` (defaults to `INBOX`) and `search` (defaults to `UNSEEN`).

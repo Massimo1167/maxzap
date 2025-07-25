@@ -12,6 +12,7 @@
       "trigger": {
         "type": "gmail_poll",
         "query": "from:centrella.pierino@gmail.com label:inbox",
+        "max_results": 10,
         "interval": 60
       },
       "actions": [

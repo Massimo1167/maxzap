@@ -24,6 +24,9 @@ python get_gmail_token.py
 
 Follow the browser flow and place the generated `token.json` next to your `config.json` file (or reference it with the `token_file` option).
 
+The Gmail trigger also accepts a `max_results` option to control how many
+messages are fetched on each poll.
+
 Other actions like Google Drive uploads or Sheets updates expect a bearer token in the `GDRIVE_TOKEN` environment variable. Slack notifications simply need a webhook URL.
 
 ## Running the engine
@@ -47,7 +50,11 @@ Workflow definitions live in `config.json`. Below is a trimmed example showing a
   "workflows": [
     {
       "id": "example-zap",
-      "trigger": {"type": "gmail_poll", "query": "label:inbox"},
+      "trigger": {
+        "type": "gmail_poll",
+        "query": "label:inbox",
+        "max_results": 10
+      },
       "actions": [
         {"type": "g_drive_upload", "params": {"folder_id": "FOLDER_ID"}},
         {"type": "sheets_append", "params": {"sheet_id": "SHEET_ID", "range": "Sheet1!A:B"}},
