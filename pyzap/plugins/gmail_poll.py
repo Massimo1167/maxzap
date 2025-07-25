@@ -30,16 +30,27 @@ class GmailPollTrigger(BaseTrigger):
         query = self.config.get("query", "label:inbox")
 
         logging.info("Polling Gmail using %s with query '%s'", token_path, query)
+        logging.debug("Loading credentials from %s", token_path)
 
         try:
-            creds = Credentials.from_authorized_user_file(token_path, [
-                "https://www.googleapis.com/auth/gmail.readonly"
-            ])
+            creds = Credentials.from_authorized_user_file(
+                token_path,
+                ["https://www.googleapis.com/auth/gmail.readonly"],
+            )
             if creds.expired and creds.refresh_token:
+                logging.debug("Refreshing Gmail token")
                 creds.refresh()  # type: ignore[attr-defined]
-            service = build("gmail", "v1", credentials=creds,cache_discovery=False)
+            logging.debug("Building Gmail service")
+            service = build(
+                "gmail",
+                "v1",
+                credentials=creds,
+                cache_discovery=False,
+            )
 
+            logging.debug("Querying Gmail API")
             result = service.users().messages().list(userId="me", q=query).execute()
+            logging.debug("Gmail API returned %s", result)
             messages = []
             for item in result.get("messages", []):
                 msg_id = item["id"]

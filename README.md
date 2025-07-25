@@ -33,7 +33,7 @@ Two built-in triggers allow fetching messages from email servers:
 
 ## Logging
 
-Runtime logs are written to `pyzap.log` with level `INFO`. Each workflow
-reports when it polls for messages, the number of messages found and whether
-actions succeed or fail. Each log entry now includes the date and time,
-helping troubleshoot the engine while it runs in endless polling mode.
+Runtime logs are written to `pyzap.log`. Use the `--log-level` option of
+`pyzap run` to change verbosity (e.g. `DEBUG` for very detailed output).
+Passing `--step` pauses execution after every workflow step so you can inspect
+the log before continuing. This is useful when troubleshooting new workflows.
