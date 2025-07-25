@@ -49,7 +49,7 @@ Workflow definitions live in `config.json`. Below is a trimmed example showing a
       "id": "example-zap",
       "trigger": {"type": "gmail_poll", "query": "label:inbox"},
       "actions": [
-        {"type": "gdrive_upload", "params": {"folder_id": "FOLDER_ID"}},
+        {"type": "g_drive_upload", "params": {"folder_id": "FOLDER_ID"}},
         {"type": "sheets_append", "params": {"sheet_id": "SHEET_ID", "range": "Sheet1!A:B"}},
         {"type": "slack_notify", "params": {"webhook_url": "https://hooks.slack.com/..."}}
       ]
