@@ -6,6 +6,7 @@ import logging
 from typing import Any, Dict, List
 
 from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
 from ..core import BaseTrigger
@@ -39,7 +40,7 @@ class GmailPollTrigger(BaseTrigger):
             )
             if creds.expired and creds.refresh_token:
                 logging.debug("Refreshing Gmail token")
-                creds.refresh()  # type: ignore[attr-defined]
+                creds.refresh(Request())  # type: ignore[attr-defined]
             logging.debug("Building Gmail service")
             service = build(
                 "gmail",
