@@ -1,15 +1,24 @@
-[
-  {
-    "id": "example-zap",
-    "trigger": {
-      "type": "gmail_poll",
-      "query": "label:inbox",
-      "interval": 60
-    },
-    "actions": [
-      {"type": "gdrive_upload", "params": {"folder_id": ""}},
-      {"type": "sheets_append", "params": {"sheet_id": "", "range": "Sheet1!A:B"}},
-      {"type": "slack_notify", "params": {"webhook_url": ""}}
-    ]
-  }
-]
+{
+  "admin_email": "admin@example.com",
+  "smtp": {
+    "host": "localhost",
+    "port": 25,
+    "username": "",
+    "password": ""
+  },
+  "workflows": [
+    {
+      "id": "example-zap",
+      "trigger": {
+        "type": "gmail_poll",
+        "query": "label:inbox",
+        "interval": 60
+      },
+      "actions": [
+        {"type": "gdrive_upload", "params": {"folder_id": ""}},
+        {"type": "sheets_append", "params": {"sheet_id": "", "range": "Sheet1!A:B"}},
+        {"type": "slack_notify", "params": {"webhook_url": ""}}
+      ]
+    }
+  ]
+}

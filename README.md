@@ -20,6 +20,25 @@ docs/               - MkDocs documentation skeleton
 This code base is a starting point only. Business logic for each plugin must be
 implemented along with authentication credentials for external services.
 
+## Configuration
+
+The main configuration file now supports global settings in addition to the
+workflow list. Administrators can provide an `admin_email` address along with
+SMTP credentials used for failure notifications:
+
+```json
+{
+  "admin_email": "admin@example.com",
+  "smtp": {
+    "host": "localhost",
+    "port": 25,
+    "username": "",
+    "password": ""
+  },
+  "workflows": [ ... ]
+}
+```
+
 ## Email polling triggers
 
 Two built-in triggers allow fetching messages from email servers:

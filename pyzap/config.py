@@ -3,7 +3,7 @@
 import json
 import os
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 # Try to import dotenv, but don't make it a hard requirement.
 # It's useful for loading a .env file during development.
@@ -39,14 +39,14 @@ def _substitute_env_vars(data: Any) -> Any:
     return data
 
 
-def load_config(path: str) -> List[Dict[str, Any]]:
-    """Loads workflows from a JSON config file and substitutes environment variables."""
+def load_config(path: str) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+    """Load configuration from JSON file with environment variable substitution."""
     with open(path, "r", encoding="utf-8") as fh:
         raw_config = json.load(fh)
     return _substitute_env_vars(raw_config)
 
 
-def save_config(path: str, workflows: List[Dict[str, Any]]) -> None:
-    """Saves workflows to a JSON config file."""
+def save_config(path: str, config: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
+    """Save configuration back to a JSON file."""
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump(workflows, fh, indent=2)
+        json.dump(config, fh, indent=2)

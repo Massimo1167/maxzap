@@ -21,16 +21,22 @@ TEMPLATE = """
 
 @app.route("/")
 def index():
-    workflows = load_config(CONFIG_PATH)
+    cfg = load_config(CONFIG_PATH)
+    workflows = cfg.get("workflows", []) if isinstance(cfg, dict) else cfg
     return render_template_string(TEMPLATE, workflows=workflows)
 
 
 @app.route("/api/workflows", methods=["POST"])
 def create_workflow():
     data = request.get_json()
-    workflows = load_config(CONFIG_PATH)
+    cfg = load_config(CONFIG_PATH)
+    workflows = cfg.get("workflows", []) if isinstance(cfg, dict) else cfg
     workflows.append(data)
-    save_config(CONFIG_PATH, workflows)
+    if isinstance(cfg, dict):
+        cfg["workflows"] = workflows
+        save_config(CONFIG_PATH, cfg)
+    else:
+        save_config(CONFIG_PATH, workflows)
     return jsonify({"status": "ok"})
 
 
