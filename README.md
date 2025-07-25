@@ -37,3 +37,23 @@ Runtime logs are written to `pyzap.log`. Use the `--log-level` option of
 `pyzap run` to change verbosity (e.g. `DEBUG` for very detailed output).
 Passing `--step` pauses execution after every workflow step so you can inspect
 the log before continuing. This is useful when troubleshooting new workflows.
+
+## Generating a Gmail API token
+
+The `gmail_poll` trigger requires an OAuth token file created from Google API credentials. Download `credentials.json` for a *Desktop app* from the Google Cloud console with Gmail and Drive APIs enabled. Then run:
+
+```bash
+python get_gmail_token.py
+```
+
+Your browser will open to authorize access. When the flow completes a `token.json` file is created. Place this file next to `config.json` (or specify its path via the `token_file` setting) so PyZap can authenticate.
+
+### Scopes used
+
+The default token requests the following OAuth scopes:
+
+* https://www.googleapis.com/auth/drive.metadata.readonly
+* https://www.googleapis.com/auth/gmail.readonly
+
+Adjust `get_gmail_token.py` if your workflows need additional scopes.
+
