@@ -23,10 +23,7 @@ class GmailArchiveAction(BaseAction):
     def _load_service(self, token_file: str):
         creds = Credentials.from_authorized_user_file(
             token_file,
-            [
-                "https://www.googleapis.com/auth/gmail.readonly",
-                "https://www.googleapis.com/auth/drive.file",
-            ],
+            ["https://www.googleapis.com/auth/gmail.readonly"],
         )
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())

@@ -313,6 +313,25 @@ def test_excel_append(monkeypatch, tmp_path):
     assert row == [1, 2]
 
 
+def test_excel_append_list_conversion(monkeypatch, tmp_path):
+    """Lists should be converted to comma separated strings."""
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module('openpyxl')
+    ExcelAppendAction = importlib.import_module('pyzap.plugins.excel_append').ExcelAppendAction
+
+    file_path = tmp_path / 'book.xlsx'
+    wb = openpyxl.Workbook()
+    wb.save(file_path)
+
+    action = ExcelAppendAction({'file': str(file_path)})
+    action.execute({'labels': ['A', 'B', 'C']})
+
+    wb2 = openpyxl.load_workbook(file_path)
+    row = [cell.value for cell in wb2.active[1]]
+    assert row == ['A, B, C']
+
+
 def test_excel_append_missing_dependency(monkeypatch, tmp_path):
     """excel_append should error gracefully when openpyxl is unavailable."""
     import importlib, sys, builtins

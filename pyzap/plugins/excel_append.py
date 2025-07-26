@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List
 
 
@@ -35,5 +36,13 @@ class ExcelAppendAction(BaseAction):
             if not fields:
                 fields = list(data.keys())
             values = [data.get(f) for f in fields]
-        ws.append(values)
+
+        def _convert(value: Any) -> Any:
+            if isinstance(value, (list, tuple)):
+                return ", ".join(str(v) for v in value)
+            if isinstance(value, dict):
+                return json.dumps(value, ensure_ascii=False)
+            return value
+
+        ws.append([_convert(v) for v in values])
         wb.save(file_path)
