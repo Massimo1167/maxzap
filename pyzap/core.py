@@ -7,6 +7,7 @@ import re
 import os
 import threading
 import time
+import signal
 from abc import ABC, abstractmethod
 from email.message import EmailMessage
 import smtplib
@@ -80,14 +81,17 @@ class Workflow:
                 continue
             if msg_id:
                 self.seen_ids.add(msg_id)
+            current = payload
             for action in self.actions:
                 if self.step_mode:
                     input(f"Press Enter to run action {type(action).__name__}...")
                 try:
                     from .formatter import normalize
 
-                    normalized = normalize(payload)
-                    action.execute(normalized)
+                    normalized = normalize(current)
+                    result = action.execute(normalized)
+                    if isinstance(result, dict):
+                        current = result
                 except Exception as exc:  # pylint: disable=broad-except
                     logging.exception("Action %s failed: %s", action, exc)
                 else:
@@ -223,7 +227,17 @@ def main_loop(config_path: str, *, log_level: str = "INFO", step_mode: bool = Fa
     setup_logging(log_level=numeric_level)
     load_plugins()
     engine = WorkflowEngine(config_path, step_mode=step_mode)
-    while True:
+
+    stop_loop = False
+
+    def _handle_sigterm(signum, frame):  # pylint: disable=unused-argument
+        nonlocal stop_loop
+        engine.stop()
+        stop_loop = True
+
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+
+    while not stop_loop:
         try:
             engine.run_all()
             time.sleep(1)

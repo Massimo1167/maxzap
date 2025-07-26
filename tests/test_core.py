@@ -1,14 +1,15 @@
 import json
 import sys
 from pathlib import Path
-
-
-from pyzap import core
+import threading
+import time
 
 # Ensure project root on the path for test execution environments
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from pyzap import core
 
 
 class DummyTrigger(core.BaseTrigger):
@@ -105,3 +106,112 @@ def test_notify_admin(monkeypatch, tmp_path):
     engine.notify_admin("wf1")
 
     assert sent["to"] == "admin@example.com"
+
+
+class ReturnAction(core.BaseAction):
+    def execute(self, data):
+        return {"x": 1}
+
+
+class CaptureAction(core.BaseAction):
+    def __init__(self, params):
+        super().__init__(params)
+        self.received = None
+
+    def execute(self, data):
+        self.received = data
+
+
+def test_workflow_pass_metadata(monkeypatch):
+    monkeypatch.setitem(core.TRIGGERS, "dummy", DummyTrigger)
+    monkeypatch.setitem(core.ACTIONS, "ret", ReturnAction)
+    monkeypatch.setitem(core.ACTIONS, "cap", CaptureAction)
+
+    wf_def = {
+        "id": "wf", 
+        "trigger": {"type": "dummy"},
+        "actions": [{"type": "ret"}, {"type": "cap"}]
+    }
+    wf = core.Workflow(wf_def)
+    wf.run()
+    cap = wf.actions[1]
+    assert cap.received == {"x": 1}
+
+
+def test_main_loop_sigterm(monkeypatch, tmp_path):
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text("[]")
+
+    created = {}
+
+    class DummyEngine:
+        def __init__(self, path, *, step_mode=False):
+            created["engine"] = self
+            self.stop_called = False
+            self.calls = 0
+
+        def run_all(self):
+            self.calls += 1
+            if self.calls == 1 and handlers.get("handler"):
+                handlers["handler"](core.signal.SIGTERM, None)
+            elif self.calls > 1:
+                raise RuntimeError("loop did not stop")
+
+        def stop(self):
+            self.stop_called = True
+
+    monkeypatch.setattr(core, "load_plugins", lambda: None)
+    handlers = {}
+
+    def fake_signal(sig, func):
+        handlers["handler"] = func
+
+    monkeypatch.setattr(core.signal, "signal", fake_signal)
+    monkeypatch.setattr(core.time, "sleep", lambda s: None)
+
+    monkeypatch.setattr(core, "WorkflowEngine", DummyEngine)
+
+    core.main_loop(str(cfg_path))
+
+    assert handlers.get("handler") is not None
+    assert created["engine"].stop_called
+
+
+def test_load_plugins(monkeypatch, tmp_path):
+    """load_plugins() should register trigger and action classes found in the plugins package."""
+    plugins_dir = tmp_path / "plugins"
+    plugins_dir.mkdir()
+
+    # minimal plugin package
+    (plugins_dir / "__init__.py").write_text("")
+    (plugins_dir / "foo.py").write_text(
+        "from pyzap.core import BaseTrigger\n"
+        "class FooTrigger(BaseTrigger):\n"
+        "    def poll(self):\n"
+        "        return []\n"
+    )
+    (plugins_dir / "bar.py").write_text(
+        "from pyzap.core import BaseAction\n"
+        "class BarAction(BaseAction):\n"
+        "    def execute(self, data):\n"
+        "        return {}\n"
+    )
+
+    import importlib, sys
+
+    # point the plugins package to the temp directory
+    pkg = importlib.import_module("pyzap.plugins")
+    monkeypatch.setattr(pkg, "__path__", [str(plugins_dir)])
+
+    # fake core file path so load_plugins uses our temp plugins directory
+    monkeypatch.setattr(core, "__file__", str(tmp_path / "core.py"))
+
+    monkeypatch.setattr(core, "TRIGGERS", {})
+    monkeypatch.setattr(core, "ACTIONS", {})
+    sys.modules.pop("pyzap.plugins.foo", None)
+    sys.modules.pop("pyzap.plugins.bar", None)
+
+    core.load_plugins()
+
+    assert set(core.TRIGGERS.keys()) == {"foo"}
+    assert set(core.ACTIONS.keys()) == {"bar"}

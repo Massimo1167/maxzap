@@ -18,6 +18,19 @@ except ImportError:
 ENV_VAR_PATTERN = re.compile(r"\$\{(.+?)\}")
 
 
+def _strip_comments(data: Any) -> Any:
+    """Recursively remove keys starting with an underscore."""
+    if isinstance(data, dict):
+        return {
+            k: _strip_comments(v)
+            for k, v in data.items()
+            if not k.startswith("_")
+        }
+    if isinstance(data, list):
+        return [_strip_comments(i) for i in data]
+    return data
+
+
 def _substitute_env_vars(data: Any) -> Any:
     """Recursively substitute environment variables in config data."""
     if isinstance(data, dict):
@@ -43,7 +56,8 @@ def load_config(path: str) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
     """Load configuration from JSON file with environment variable substitution."""
     with open(path, "r", encoding="utf-8") as fh:
         raw_config = json.load(fh)
-    return _substitute_env_vars(raw_config)
+    cleaned = _strip_comments(raw_config)
+    return _substitute_env_vars(cleaned)
 
 
 def save_config(path: str, config: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
