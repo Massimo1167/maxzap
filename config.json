@@ -27,7 +27,7 @@
         "local_dir": "./archive",
         "attachment_types": [".pdf"],
         "save_message": false,
-        "save_attachments": false,
+        "save_attachments": true,
         "download_links": true
       }
         },
