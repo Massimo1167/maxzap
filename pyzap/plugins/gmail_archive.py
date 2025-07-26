@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib import request
+from urllib.parse import urlparse
+import re
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -19,6 +21,22 @@ from .gdrive_upload import GDriveUploadAction
 
 class GmailArchiveAction(BaseAction):
     """Download a Gmail message and attachments and store them."""
+
+    def _collect_text(self, part: Dict[str, Any]) -> List[str]:
+        """Recursively collect text parts from a Gmail message payload."""
+        text_parts: List[str] = []
+        mime = part.get("mimeType", "")
+        body = part.get("body", {})
+        data = body.get("data")
+        if data and mime in ("text/plain", "text/html"):
+            try:
+                text = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+                text_parts.append(text)
+            except Exception:
+                pass
+        for sub in part.get("parts", []):
+            text_parts.extend(self._collect_text(sub))
+        return text_parts
 
     def _load_service(self, token_file: str):
         creds = Credentials.from_authorized_user_file(
@@ -50,6 +68,7 @@ class GmailArchiveAction(BaseAction):
         local_dir = self.params.get("local_dir")
         token = self.params.get("token") or os.environ.get("GDRIVE_TOKEN")
         save_message = bool(self.params.get("save_message", True))
+        download_links = bool(self.params.get("download_links", False))
         types = self.params.get("attachment_types")
         ext_filter = None
         if types:
@@ -97,6 +116,26 @@ class GmailArchiveAction(BaseAction):
                 content = base64.urlsafe_b64decode(raw["data"])
                 files.append((filename, content))
                 attachments.append(filename)
+
+        message_text = snippet
+        if download_links:
+            for txt in self._collect_text(msg.get("payload", {})):
+                message_text += "\n" + txt
+            for url in re.findall(r"https?://\S+", message_text):
+                parsed = urlparse(url)
+                name = os.path.basename(parsed.path)
+                ext = Path(name).suffix.lower()
+                if not name:
+                    continue
+                if ext_filter and ext not in ext_filter:
+                    continue
+                try:
+                    with request.urlopen(url) as resp:
+                        content = resp.read()
+                    files.append((name, content))
+                    attachments.append(name)
+                except Exception:
+                    continue
 
         folder_name = str(msg_id)
         storage_path = ""

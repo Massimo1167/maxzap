@@ -128,7 +128,7 @@ def _setup_gmail(monkeypatch):
             def get(self, userId="me", id=None, format=None):
                 return Execute({
                     "id": id,
-                    "snippet": "body",
+                    "snippet": "body http://example.com/file.pdf",
                     "payload": {
                         "headers": [
                             {"name": "From", "value": "f"},
@@ -277,6 +277,40 @@ def test_gmail_archive_filtered(monkeypatch, tmp_path):
     assert not folder.exists()
     assert result['attachments'] == []
     assert result['storage_path'] == ''
+
+
+def test_gmail_archive_links(monkeypatch, tmp_path):
+    _setup_gmail(monkeypatch)
+    import importlib
+    module = importlib.import_module('pyzap.plugins.gmail_archive')
+    module = importlib.reload(module)
+    action_cls = module.GmailArchiveAction
+
+    class DummyLinkResponse:
+        def read(self):
+            return b'linked'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    def fake_urlopen(req):
+        return DummyLinkResponse()
+
+    monkeypatch.setattr(urllib.request, 'urlopen', fake_urlopen)
+    action = action_cls({
+        'token_file': 'token.json',
+        'local_dir': str(tmp_path),
+        'download_links': True,
+        'attachment_types': ['.pdf'],
+    })
+    result = action.execute({'id': '123'})
+    folder = tmp_path / '123'
+    assert folder.exists()
+    assert (folder / 'file.pdf').read_bytes() == b'linked'
+    assert 'file.pdf' in result['attachments']
 
 
 def test_imap_archive(monkeypatch, tmp_path):
