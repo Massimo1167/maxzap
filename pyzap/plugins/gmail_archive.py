@@ -22,21 +22,57 @@ from .gdrive_upload import GDriveUploadAction
 class GmailArchiveAction(BaseAction):
     """Download a Gmail message and attachments and store them."""
 
-    def _collect_text(self, part: Dict[str, Any]) -> List[str]:
+    def _collect_text(
+        self,
+        part: Dict[str, Any],
+        *,
+        service: Optional[Any] = None,
+        msg_id: Optional[str] = None,
+    ) -> List[str]:
         """Recursively collect text parts from a Gmail message payload."""
+
         text_parts: List[str] = []
         mime = part.get("mimeType", "")
         body = part.get("body", {})
         data = body.get("data")
+
+        if (not data) and body.get("attachmentId") and service and msg_id:
+            try:
+                raw = (
+                    service.users()
+                    .messages()
+                    .attachments()
+                    .get(userId="me", messageId=msg_id, id=body["attachmentId"])
+                    .execute()
+                )
+                data = raw.get("data")
+            except Exception:
+                data = None
+
         if data and mime in ("text/plain", "text/html"):
             try:
                 text = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
                 text_parts.append(text)
             except Exception:
                 pass
+
         for sub in part.get("parts", []):
-            text_parts.extend(self._collect_text(sub))
+            text_parts.extend(self._collect_text(sub, service=service, msg_id=msg_id))
+
         return text_parts
+
+    @staticmethod
+    def _strip_replies(text: str) -> str:
+        """Remove quoted replies from an email body."""
+
+        lines = []
+        for line in text.splitlines():
+            if line.lstrip().startswith(">"):
+                continue
+            if re.match(r"On .* wrote:", line):
+                break
+            lines.append(line)
+        return "\n".join(lines).strip()
 
     def _load_service(self, token_file: str):
         creds = Credentials.from_authorized_user_file(
@@ -119,9 +155,12 @@ class GmailArchiveAction(BaseAction):
                     files.append((filename, content))
                     attachments.append(filename)
 
-        message_text = snippet
-        for txt in self._collect_text(msg.get("payload", {})):
-            message_text += "\n" + txt
+        message_text = "\n".join(
+            self._collect_text(
+                msg.get("payload", {}), service=service, msg_id=msg_id
+            )
+        )
+        message_text = self._strip_replies(message_text)
 
         if download_links:
             for url in re.findall(r"https?://\S+", message_text):
@@ -148,7 +187,7 @@ class GmailArchiveAction(BaseAction):
             folder.mkdir(parents=True, exist_ok=True)
             if save_message:
                 with open(folder / "message.txt", "w", encoding="utf-8") as fh:
-                    fh.write(snippet)
+                    fh.write(message_text)
             for name, content in files:
                 with open(folder / name, "wb") as fh:
                     fh.write(content)
@@ -159,7 +198,7 @@ class GmailArchiveAction(BaseAction):
             folder_id = self._create_drive_folder(folder_name, drive_parent, token)
             uploader = GDriveUploadAction({"folder_id": folder_id, "token": token})
             if save_message:
-                uploader.execute({"content": snippet.encode(), "filename": "message.txt"})
+                uploader.execute({"content": message_text.encode(), "filename": "message.txt"})
             for name, content in files:
                 uploader.execute({"content": content, "filename": name})
             storage_path = folder_id
