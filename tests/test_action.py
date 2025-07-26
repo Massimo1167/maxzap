@@ -484,6 +484,20 @@ def test_gmail_archive_links_no_attachments(monkeypatch, tmp_path):
     assert result['attachments'] == ['file.pdf']
 
 
+def test_gmail_archive_token_from_message(monkeypatch, tmp_path):
+    """token_file may be supplied in the message payload."""
+    _setup_gmail(monkeypatch)
+    import importlib
+    module = importlib.import_module('pyzap.plugins.gmail_archive')
+    module = importlib.reload(module)
+    action_cls = module.GmailArchiveAction
+    action = action_cls({'local_dir': str(tmp_path)})
+    result = action.execute({'id': '123', 'token_file': 'token.json'})
+    folder = tmp_path / '123'
+    assert folder.exists()
+    assert result['sender'] == 'f'
+
+
 def test_gmail_archive_html_link_header(monkeypatch, tmp_path):
     _setup_gmail_html(monkeypatch)
     import importlib
