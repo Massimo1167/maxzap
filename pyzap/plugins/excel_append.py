@@ -32,17 +32,21 @@ class ExcelAppendAction(BaseAction):
 
         if "values" in data:
             values = data["values"]
+            field_names = [str(i) for i in range(len(values))]
         else:
             if not fields:
                 fields = list(data.keys())
+            field_names = fields
             values = [data.get(f) for f in fields]
 
-        def _convert(value: Any) -> Any:
+        def _convert(value: Any, name: str) -> Any:
+            if name == "storage_path" and not value:
+                return None
             if isinstance(value, (list, tuple)):
                 return ", ".join(str(v) for v in value)
             if isinstance(value, dict):
                 return json.dumps(value, ensure_ascii=False)
             return value
 
-        ws.append([_convert(v) for v in values])
+        ws.append([_convert(v, n) for v, n in zip(values, field_names)])
         wb.save(file_path)
