@@ -331,6 +331,38 @@ def test_gmail_archive_links(monkeypatch, tmp_path):
     assert 'file.pdf' in result['attachments']
 
 
+def test_gmail_archive_links_no_attachments(monkeypatch, tmp_path):
+    _setup_gmail(monkeypatch)
+    import importlib
+    module = importlib.import_module('pyzap.plugins.gmail_archive')
+    module = importlib.reload(module)
+    action_cls = module.GmailArchiveAction
+
+    class DummyLinkResponse:
+        def read(self):
+            return b'linked'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(urllib.request, 'urlopen', lambda req: DummyLinkResponse())
+    action = action_cls({
+        'token_file': 'token.json',
+        'local_dir': str(tmp_path),
+        'save_attachments': False,
+        'download_links': True,
+        'attachment_types': ['.pdf'],
+    })
+    result = action.execute({'id': '123'})
+    folder = tmp_path / '123'
+    assert folder.exists()
+    assert (folder / 'file.pdf').read_bytes() == b'linked'
+    assert result['attachments'] == ['file.pdf']
+
+
 def test_imap_archive(monkeypatch, tmp_path):
     from pyzap.plugins.imap_archive import ImapArchiveAction
 

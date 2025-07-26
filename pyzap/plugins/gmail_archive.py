@@ -120,9 +120,10 @@ class GmailArchiveAction(BaseAction):
                     attachments.append(filename)
 
         message_text = snippet
-        if save_attachments and download_links:
-            for txt in self._collect_text(msg.get("payload", {})):
-                message_text += "\n" + txt
+        for txt in self._collect_text(msg.get("payload", {})):
+            message_text += "\n" + txt
+
+        if download_links:
             for url in re.findall(r"https?://\S+", message_text):
                 parsed = urlparse(url)
                 name = os.path.basename(parsed.path)
