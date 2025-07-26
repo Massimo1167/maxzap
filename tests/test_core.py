@@ -1,14 +1,15 @@
 import json
 import sys
 from pathlib import Path
-
-
-from pyzap import core
+import threading
+import time
 
 # Ensure project root on the path for test execution environments
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from pyzap import core
 
 
 class DummyTrigger(core.BaseTrigger):
@@ -135,3 +136,42 @@ def test_workflow_pass_metadata(monkeypatch):
     wf.run()
     cap = wf.actions[1]
     assert cap.received == {"x": 1}
+
+
+def test_main_loop_sigterm(monkeypatch, tmp_path):
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text("[]")
+
+    created = {}
+
+    class DummyEngine:
+        def __init__(self, path, *, step_mode=False):
+            created["engine"] = self
+            self.stop_called = False
+            self.calls = 0
+
+        def run_all(self):
+            self.calls += 1
+            if self.calls == 1 and handlers.get("handler"):
+                handlers["handler"](core.signal.SIGTERM, None)
+            elif self.calls > 1:
+                raise RuntimeError("loop did not stop")
+
+        def stop(self):
+            self.stop_called = True
+
+    monkeypatch.setattr(core, "load_plugins", lambda: None)
+    handlers = {}
+
+    def fake_signal(sig, func):
+        handlers["handler"] = func
+
+    monkeypatch.setattr(core.signal, "signal", fake_signal)
+    monkeypatch.setattr(core.time, "sleep", lambda s: None)
+
+    monkeypatch.setattr(core, "WorkflowEngine", DummyEngine)
+
+    core.main_loop(str(cfg_path))
+
+    assert handlers.get("handler") is not None
+    assert created["engine"].stop_called
