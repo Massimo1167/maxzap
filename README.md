@@ -69,6 +69,21 @@ Two built-in triggers allow fetching messages from email servers:
   Required options are `host`, `username` and `password`. Optional keys are
   `mailbox` (defaults to `INBOX`) and `search` (defaults to `UNSEEN`).
 
+## Archive and spreadsheet actions
+
+Two archive actions download an email and its attachments then return metadata
+that can be appended to a spreadsheet:
+
+* `gmail_archive` &ndash; stores a Gmail message in a subfolder on Google Drive
+  or under a local directory. Provide a `token_file` along with either
+  `drive_folder_id` or `local_dir`.
+* `imap_archive` &ndash; similar functionality for standard IMAP servers. It
+  requires `host`, `username` and `password` and the same destination options as
+  `gmail_archive`.
+
+The resulting metadata dictionary can be passed to `sheets_append` or the new
+`excel_append` action which writes rows to a local `.xlsx` workbook.
+
 ## Logging
 
 Runtime logs are written to `pyzap.log`. Use the `--log-level` option of

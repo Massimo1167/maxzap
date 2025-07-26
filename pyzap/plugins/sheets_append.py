@@ -27,6 +27,10 @@ class SheetsAppendAction(BaseAction):
         range_ = self.params.get("range")
         token = self.params.get("token") or os.environ.get("GDRIVE_TOKEN")
         values = data.get("values")
+        if values is None:
+            fields = self.params.get("fields")
+            if fields:
+                values = [data.get(f) for f in fields]
 
         missing = []
         if not sheet_id:

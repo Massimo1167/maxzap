@@ -80,14 +80,17 @@ class Workflow:
                 continue
             if msg_id:
                 self.seen_ids.add(msg_id)
+            current = payload
             for action in self.actions:
                 if self.step_mode:
                     input(f"Press Enter to run action {type(action).__name__}...")
                 try:
                     from .formatter import normalize
 
-                    normalized = normalize(payload)
-                    action.execute(normalized)
+                    normalized = normalize(current)
+                    result = action.execute(normalized)
+                    if isinstance(result, dict):
+                        current = result
                 except Exception as exc:  # pylint: disable=broad-except
                     logging.exception("Action %s failed: %s", action, exc)
                 else:

@@ -68,3 +68,22 @@ Workflow definitions live in `config.json`. Below is a trimmed example showing a
 Values may also reference environment variables using the `${VAR_NAME}` syntax as seen in the provided `config.json` file.
 
 With the configuration in place simply run `pyzap` as shown above and watch your automations execute.
+
+## Archiving email
+
+Two archive actions can store a message and attachments then feed the resulting
+metadata into spreadsheet appenders:
+
+```json
+{
+  "id": "archive-example",
+  "trigger": {"type": "gmail_poll"},
+  "actions": [
+    {"type": "gmail_archive", "params": {"local_dir": "./archive"}},
+    {"type": "excel_append", "params": {"file": "log.xlsx"}}
+  ]
+}
+```
+
+The same concept works with `imap_archive` in place of `gmail_archive` and the
+`sheets_append` action for Google Sheets.
