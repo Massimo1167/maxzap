@@ -184,7 +184,9 @@ class WorkflowEngine:
 
 
 def setup_logging(log_file: str = "pyzap.log", *, log_level: int = logging.INFO) -> None:
-    handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=3)
+    handler = RotatingFileHandler(
+        log_file, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
+    )
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s - %(levelname)s - %(message)s",
