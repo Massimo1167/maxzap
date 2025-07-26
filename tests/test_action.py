@@ -279,6 +279,24 @@ def test_gmail_archive_filtered(monkeypatch, tmp_path):
     assert result['storage_path'] == ''
 
 
+def test_gmail_archive_skip_attachments(monkeypatch, tmp_path):
+    _setup_gmail(monkeypatch)
+    import importlib
+    module = importlib.import_module('pyzap.plugins.gmail_archive')
+    module = importlib.reload(module)
+    action_cls = module.GmailArchiveAction
+    action = action_cls({
+        'token_file': 'token.json',
+        'local_dir': str(tmp_path),
+        'save_attachments': False,
+    })
+    result = action.execute({'id': '123'})
+    folder = tmp_path / '123'
+    assert folder.exists()
+    assert not (folder / 'a.txt').exists()
+    assert result['attachments'] == []
+
+
 def test_gmail_archive_links(monkeypatch, tmp_path):
     _setup_gmail(monkeypatch)
     import importlib
@@ -349,6 +367,44 @@ def test_imap_archive(monkeypatch, tmp_path):
     folder = tmp_path / '1'
     assert (folder / 'att.txt').exists()
     assert result['subject'] == 's'
+
+
+def test_imap_archive_skip_attachments(monkeypatch, tmp_path):
+    from pyzap.plugins.imap_archive import ImapArchiveAction
+
+    class DummyIMAP:
+        def __init__(self, host):
+            pass
+
+        def login(self, u, p):
+            pass
+
+        def select(self, mbox):
+            pass
+
+        def fetch(self, num, parts):
+            msg = (
+                b"Subject: s\r\nFrom: f\r\nDate: d\r\n"
+                b"Content-Type: multipart/mixed; boundary=ab\r\n\r\n"
+                b"--ab\r\nContent-Type: text/plain\r\n\r\nbody\r\n"
+                b"--ab\r\nContent-Type: text/plain; name=att.txt\r\n"
+                b"Content-Disposition: attachment; filename=att.txt\r\n\r\nfile\r\n"
+                b"--ab--"
+            )
+            return ("OK", [(b"1", msg)])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(imaplib, 'IMAP4_SSL', lambda host: DummyIMAP(host))
+    action = ImapArchiveAction({'host': 'h', 'username': 'u', 'password': 'p', 'local_dir': str(tmp_path), 'save_attachments': False})
+    result = action.execute({'id': '1'})
+    folder = tmp_path / '1'
+    assert not (folder / 'att.txt').exists()
+    assert result['attachments'] == []
 
 
 def test_excel_append(monkeypatch, tmp_path):
