@@ -41,8 +41,19 @@ class GDriveUploadAction(BaseAction):
                 logging.error("File %s not found", file_path)
                 return
 
-        if not folder_id or not token or content is None:
-            logging.error("Google Drive upload configuration missing")
+        missing = []
+        if not folder_id:
+            missing.append("folder_id")
+        if not token:
+            missing.append("token")
+        if content is None:
+            missing.append("content")
+
+        if missing:
+            logging.error(
+                "Google Drive upload configuration missing: %s",
+                ", ".join(missing),
+            )
             return
 
         filename = filename or "upload.txt"

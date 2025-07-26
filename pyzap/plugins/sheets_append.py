@@ -28,8 +28,21 @@ class SheetsAppendAction(BaseAction):
         token = self.params.get("token") or os.environ.get("GDRIVE_TOKEN")
         values = data.get("values")
 
-        if not sheet_id or not range_ or values is None or not token:
-            logging.error("Google Sheets append configuration missing")
+        missing = []
+        if not sheet_id:
+            missing.append("sheet_id")
+        if not range_:
+            missing.append("range")
+        if values is None:
+            missing.append("values")
+        if not token:
+            missing.append("token")
+
+        if missing:
+            logging.error(
+                "Google Sheets append configuration missing: %s",
+                ", ".join(missing),
+            )
             return
 
         logging.info("Appending row to sheet %s range %s", sheet_id, range_)
