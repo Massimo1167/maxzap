@@ -37,9 +37,9 @@ class GDriveUploadAction(BaseAction):
                 filename = filename or os.path.basename(file_path)
                 with open(file_path, "rb") as fh:
                     content = fh.read()
-            except FileNotFoundError:
+            except FileNotFoundError as exc:
                 logging.error("File %s not found", file_path)
-                return
+                raise
 
         missing = []
         if not folder_id:
@@ -50,11 +50,10 @@ class GDriveUploadAction(BaseAction):
             missing.append("content")
 
         if missing:
-            logging.error(
-                "Google Drive upload configuration missing: %s",
-                ", ".join(missing),
+            raise ValueError(
+                "Google Drive upload configuration missing: %s"
+                % ", ".join(missing)
             )
-            return
 
         filename = filename or "upload.txt"
         logging.info("Uploading %s to Google Drive folder %s", filename, folder_id)
@@ -84,3 +83,4 @@ class GDriveUploadAction(BaseAction):
             logging.info("Google Drive upload successful")
         except Exception as exc:  # pylint: disable=broad-except
             logging.exception("Google Drive upload failed: %s", exc)
+            raise RuntimeError("Google Drive upload failed") from exc

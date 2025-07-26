@@ -26,11 +26,9 @@ class SlackNotifyAction(BaseAction):
             missing.append("text")
 
         if missing:
-            logging.error(
-                "Slack webhook configuration missing: %s",
-                ", ".join(missing),
+            raise ValueError(
+                "Slack webhook configuration missing: %s" % ", ".join(missing)
             )
-            return
 
         logging.info("Sending Slack notification")
 
@@ -42,3 +40,4 @@ class SlackNotifyAction(BaseAction):
             logging.info("Slack notification sent")
         except Exception as exc:  # pylint: disable=broad-except
             logging.exception("Slack notification failed: %s", exc)
+            raise RuntimeError("Slack notification failed") from exc

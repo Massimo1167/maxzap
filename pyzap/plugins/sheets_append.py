@@ -39,11 +39,9 @@ class SheetsAppendAction(BaseAction):
             missing.append("token")
 
         if missing:
-            logging.error(
-                "Google Sheets append configuration missing: %s",
-                ", ".join(missing),
+            raise ValueError(
+                "Google Sheets append configuration missing: %s" % ", ".join(missing)
             )
-            return
 
         logging.info("Appending row to sheet %s range %s", sheet_id, range_)
 
@@ -64,3 +62,4 @@ class SheetsAppendAction(BaseAction):
             logging.info("Google Sheets append successful")
         except Exception as exc:  # pylint: disable=broad-except
             logging.exception("Google Sheets append failed: %s", exc)
+            raise RuntimeError("Google Sheets append failed") from exc
