@@ -20,12 +20,8 @@
         "interval": 60
       },
       "actions": [
-        {
-          "type": "g_drive_upload",
-          "params": {"folder_id": "${GDRIVE_FOLDER_ID}"}
-        },
-        {"type": "sheets_append", "params": {"sheet_id": "${GSHEET_ID}", "range": "Foglio1!A:B"}},
-        {"type": "slack_notify", "params": {"webhook_url": "${SLACK_WEBHOOK_URL}"}}
+        {"type": "gmail_archive", "params": {"local_dir": "./archive"}},
+        {"type": "excel_append", "params": {"file": "log.xlsx"}}
       ]
     }
   ]
