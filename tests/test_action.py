@@ -2,6 +2,7 @@ import json
 import urllib.request
 import sys
 from pathlib import Path
+import pytest
 
 # Ensure project root is on the path for test execution environments
 ROOT = Path(__file__).resolve().parents[1]
@@ -68,8 +69,8 @@ def test_slack_notify_error(monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", fake)
     action = SlackNotifyAction({"webhook_url": "http://example.com"})
-    # Should not raise
-    action.execute({"text": "hi"})
+    with pytest.raises(RuntimeError):
+        action.execute({"text": "hi"})
     assert called
 
 
@@ -83,5 +84,6 @@ def test_slack_notify_missing(monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", fake)
     action = SlackNotifyAction({"webhook_url": ""})
-    action.execute({})
+    with pytest.raises(ValueError):
+        action.execute({})
     assert not called

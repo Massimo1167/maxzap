@@ -88,11 +88,14 @@ class Workflow:
 
                     normalized = normalize(payload)
                     action.execute(normalized)
-                    logging.info("Action %s executed successfully", type(action).__name__)
-                    if self.step_mode:
-                        input("Press Enter to continue...")
                 except Exception as exc:  # pylint: disable=broad-except
                     logging.exception("Action %s failed: %s", action, exc)
+                else:
+                    logging.info(
+                        "Action %s executed successfully", type(action).__name__
+                    )
+                    if self.step_mode:
+                        input("Press Enter to continue...")
 
 
 class WorkflowEngine:
