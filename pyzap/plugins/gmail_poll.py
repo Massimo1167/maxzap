@@ -71,7 +71,23 @@ class GmailPollTrigger(BaseTrigger):
                 msg["id"] = msg_id
                 messages.append(msg)
 
-                logging.debug("Fetched Gmail message %s", msg_id)
+                headers = msg.get("payload", {}).get("headers", [])
+                sender = ""
+                subject = ""
+                for header in headers:
+                    name = header.get("name", "").lower()
+                    if name == "from":
+                        sender = header.get("value", "")
+                    elif name == "subject":
+                        subject = header.get("value", "")
+                    if sender and subject:
+                        break
+                logging.debug(
+                    "Fetched Gmail message %s from %s with subject %s",
+                    msg_id,
+                    sender,
+                    subject,
+                )
             logging.info("Gmail polling returned %d messages", len(messages))
             return messages
         except Exception as exc:  # pylint: disable=broad-except
