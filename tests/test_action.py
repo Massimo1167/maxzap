@@ -315,9 +315,17 @@ def test_excel_append(monkeypatch, tmp_path):
 
 def test_excel_append_missing_dependency(monkeypatch, tmp_path):
     """excel_append should error gracefully when openpyxl is unavailable."""
-    import importlib, sys
+    import importlib, sys, builtins
 
     monkeypatch.delitem(sys.modules, 'openpyxl', raising=False)
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == 'openpyxl' or name.startswith('openpyxl.'):
+            raise ImportError('No module named openpyxl')
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, '__import__', fake_import)
     module = importlib.import_module('pyzap.plugins.excel_append')
     module = importlib.reload(module)
     ExcelAppendAction = module.ExcelAppendAction
