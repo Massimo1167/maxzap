@@ -7,6 +7,7 @@ import re
 import os
 import threading
 import time
+import signal
 from abc import ABC, abstractmethod
 from email.message import EmailMessage
 import smtplib
@@ -226,7 +227,17 @@ def main_loop(config_path: str, *, log_level: str = "INFO", step_mode: bool = Fa
     setup_logging(log_level=numeric_level)
     load_plugins()
     engine = WorkflowEngine(config_path, step_mode=step_mode)
-    while True:
+
+    stop_loop = False
+
+    def _handle_sigterm(signum, frame):  # pylint: disable=unused-argument
+        nonlocal stop_loop
+        engine.stop()
+        stop_loop = True
+
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+
+    while not stop_loop:
         try:
             engine.run_all()
             time.sleep(1)
