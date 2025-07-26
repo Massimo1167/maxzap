@@ -83,7 +83,14 @@ metadata into spreadsheet appenders:
   "id": "archive-example",
   "trigger": {"type": "gmail_poll"},
   "actions": [
-    {"type": "gmail_archive", "params": {"local_dir": "./archive"}},
+    {
+      "type": "gmail_archive",
+      "params": {
+        "local_dir": "./archive",
+        "attachment_types": [".pdf"],
+        "save_message": false
+      }
+    },
     {"type": "excel_append", "params": {"file": "log.xlsx"}}
   ]
 }

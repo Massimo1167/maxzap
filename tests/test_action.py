@@ -260,6 +260,25 @@ def test_gmail_archive(monkeypatch, tmp_path):
     assert result['sender'] == 'f'
 
 
+def test_gmail_archive_filtered(monkeypatch, tmp_path):
+    _setup_gmail(monkeypatch)
+    import importlib
+    module = importlib.import_module('pyzap.plugins.gmail_archive')
+    module = importlib.reload(module)
+    action_cls = module.GmailArchiveAction
+    action = action_cls({
+        'token_file': 'token.json',
+        'local_dir': str(tmp_path),
+        'save_message': False,
+        'attachment_types': ['.pdf'],
+    })
+    result = action.execute({'id': '123'})
+    folder = tmp_path / '123'
+    assert not folder.exists()
+    assert result['attachments'] == []
+    assert result['storage_path'] == ''
+
+
 def test_imap_archive(monkeypatch, tmp_path):
     from pyzap.plugins.imap_archive import ImapArchiveAction
 
@@ -330,6 +349,24 @@ def test_excel_append_list_conversion(monkeypatch, tmp_path):
     wb2 = openpyxl.load_workbook(file_path)
     row = [cell.value for cell in wb2.active[1]]
     assert row == ['A, B, C']
+
+
+def test_excel_append_skip_storage(monkeypatch, tmp_path):
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module('openpyxl')
+    ExcelAppendAction = importlib.import_module('pyzap.plugins.excel_append').ExcelAppendAction
+
+    file_path = tmp_path / 'book.xlsx'
+    wb = openpyxl.Workbook()
+    wb.save(file_path)
+
+    action = ExcelAppendAction({'file': str(file_path), 'fields': ['storage_path', 'subject']})
+    action.execute({'storage_path': '', 'subject': 'test'})
+
+    wb2 = openpyxl.load_workbook(file_path)
+    row = [cell.value for cell in wb2.active[1]]
+    assert row == [None, 'test']
 
 
 def test_excel_append_missing_dependency(monkeypatch, tmp_path):
