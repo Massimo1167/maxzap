@@ -67,6 +67,10 @@ Workflow definitions live in `config.json`. Below is a trimmed example showing a
 
 Values may also reference environment variables using the `${VAR_NAME}` syntax as seen in the provided `config.json` file.
 
+Keys beginning with an underscore, for example `_comment`, are ignored when the
+configuration is loaded. This lets you annotate the JSON file with inline
+comments.
+
 With the configuration in place simply run `pyzap` as shown above and watch your automations execute.
 
 ## Archiving email
