@@ -11,7 +11,7 @@ Welcome to the PyZap documentation. PyZap is a lightweight workflow automation e
    ```
 2. Install the required libraries:
    ```bash
-   pip install flask google-api-python-client google-auth google-auth-oauthlib python-dotenv
+   pip install -r requirements.txt
    ```
 
 ## Obtaining API credentials
