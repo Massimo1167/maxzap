@@ -32,6 +32,7 @@ class ImapArchiveAction(BaseAction):
         drive_parent = self.params.get("drive_folder_id")
         local_dir = self.params.get("local_dir")
         token = self.params.get("token") or os.environ.get("GDRIVE_TOKEN")
+        save_attachments = bool(self.params.get("save_attachments", True))
         msg_id = data.get("id")
         if not host or not username or not password:
             raise ValueError("IMAP credentials missing")
@@ -48,12 +49,13 @@ class ImapArchiveAction(BaseAction):
 
         attachments: List[str] = []
         files: List[tuple[str, bytes]] = []
-        for part in msg.walk():
-            if part.get_content_disposition() == "attachment":
-                filename = part.get_filename() or "attachment"
-                payload = part.get_payload(decode=True) or b""
-                files.append((filename, payload))
-                attachments.append(filename)
+        if save_attachments:
+            for part in msg.walk():
+                if part.get_content_disposition() == "attachment":
+                    filename = part.get_filename() or "attachment"
+                    payload = part.get_payload(decode=True) or b""
+                    files.append((filename, payload))
+                    attachments.append(filename)
 
         folder_name = str(msg_id)
         storage_path = ""

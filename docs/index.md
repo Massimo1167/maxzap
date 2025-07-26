@@ -89,6 +89,7 @@ metadata into spreadsheet appenders:
         "local_dir": "./archive",
         "attachment_types": [".pdf"],
         "save_message": false,
+        "save_attachments": false,
         "download_links": true
       }
     },

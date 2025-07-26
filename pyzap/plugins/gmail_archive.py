@@ -68,6 +68,7 @@ class GmailArchiveAction(BaseAction):
         local_dir = self.params.get("local_dir")
         token = self.params.get("token") or os.environ.get("GDRIVE_TOKEN")
         save_message = bool(self.params.get("save_message", True))
+        save_attachments = bool(self.params.get("save_attachments", True))
         download_links = bool(self.params.get("download_links", False))
         types = self.params.get("attachment_types")
         ext_filter = None
@@ -98,27 +99,28 @@ class GmailArchiveAction(BaseAction):
 
         attachments: List[str] = []
         files: List[tuple[str, bytes]] = []
-        for part in msg.get("payload", {}).get("parts", []):
-            filename = part.get("filename")
-            att_id = part.get("body", {}).get("attachmentId")
-            if filename and att_id:
-                if ext_filter and not any(
-                    filename.lower().endswith(ext) for ext in ext_filter
-                ):
-                    continue
-                raw = (
-                    service.users()
-                    .messages()
-                    .attachments()
-                    .get(userId="me", messageId=msg_id, id=att_id)
-                    .execute()
-                )
-                content = base64.urlsafe_b64decode(raw["data"])
-                files.append((filename, content))
-                attachments.append(filename)
+        if save_attachments:
+            for part in msg.get("payload", {}).get("parts", []):
+                filename = part.get("filename")
+                att_id = part.get("body", {}).get("attachmentId")
+                if filename and att_id:
+                    if ext_filter and not any(
+                        filename.lower().endswith(ext) for ext in ext_filter
+                    ):
+                        continue
+                    raw = (
+                        service.users()
+                        .messages()
+                        .attachments()
+                        .get(userId="me", messageId=msg_id, id=att_id)
+                        .execute()
+                    )
+                    content = base64.urlsafe_b64decode(raw["data"])
+                    files.append((filename, content))
+                    attachments.append(filename)
 
         message_text = snippet
-        if download_links:
+        if save_attachments and download_links:
             for txt in self._collect_text(msg.get("payload", {})):
                 message_text += "\n" + txt
             for url in re.findall(r"https?://\S+", message_text):
