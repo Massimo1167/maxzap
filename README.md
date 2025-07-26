@@ -77,8 +77,9 @@ that can be appended to a spreadsheet:
 * `gmail_archive` &ndash; stores a Gmail message and/or its attachments in a
   subfolder on Google Drive or under a local directory. Provide a `token_file`
   along with either `drive_folder_id` or `local_dir`. Optional parameters let
-  you skip saving the message body with `save_message` (defaults to `true`) and
-  filter attachments by extension using `attachment_types` (e.g. `[".pdf"]`).
+  you skip saving the message body with `save_message` (defaults to `true`),
+  filter attachments by extension using `attachment_types` (e.g. `[".pdf"]`),
+  and download file links found in the message body with `download_links`.
 * `imap_archive` &ndash; similar functionality for standard IMAP servers. It
   requires `host`, `username` and `password` and the same destination options as
   `gmail_archive`.

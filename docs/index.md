@@ -88,7 +88,8 @@ metadata into spreadsheet appenders:
       "params": {
         "local_dir": "./archive",
         "attachment_types": [".pdf"],
-        "save_message": false
+        "save_message": false,
+        "download_links": true
       }
     },
     {"type": "excel_append", "params": {"file": "log.xlsx"}}
