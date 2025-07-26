@@ -105,3 +105,33 @@ def test_notify_admin(monkeypatch, tmp_path):
     engine.notify_admin("wf1")
 
     assert sent["to"] == "admin@example.com"
+
+
+class ReturnAction(core.BaseAction):
+    def execute(self, data):
+        return {"x": 1}
+
+
+class CaptureAction(core.BaseAction):
+    def __init__(self, params):
+        super().__init__(params)
+        self.received = None
+
+    def execute(self, data):
+        self.received = data
+
+
+def test_workflow_pass_metadata(monkeypatch):
+    monkeypatch.setitem(core.TRIGGERS, "dummy", DummyTrigger)
+    monkeypatch.setitem(core.ACTIONS, "ret", ReturnAction)
+    monkeypatch.setitem(core.ACTIONS, "cap", CaptureAction)
+
+    wf_def = {
+        "id": "wf", 
+        "trigger": {"type": "dummy"},
+        "actions": [{"type": "ret"}, {"type": "cap"}]
+    }
+    wf = core.Workflow(wf_def)
+    wf.run()
+    cap = wf.actions[1]
+    assert cap.received == {"x": 1}
