@@ -11,6 +11,7 @@
       "id": "example-zap",
       "trigger": {
         "type": "gmail_poll",
+        "query": "from:pierino.centrella@gmail.com label:inbox",
         "max_results": 10,
         "interval": 60
       },
