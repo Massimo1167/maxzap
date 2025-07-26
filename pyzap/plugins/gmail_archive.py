@@ -49,6 +49,14 @@ class GmailArchiveAction(BaseAction):
         drive_parent = self.params.get("drive_folder_id")
         local_dir = self.params.get("local_dir")
         token = self.params.get("token") or os.environ.get("GDRIVE_TOKEN")
+        save_message = bool(self.params.get("save_message", True))
+        types = self.params.get("attachment_types")
+        ext_filter = None
+        if types:
+            if isinstance(types, str):
+                ext_filter = [t.strip().lower() for t in types.split(",") if t.strip()]
+            else:
+                ext_filter = [str(t).lower() for t in types]
         msg_id = data.get("id")
         if not msg_id:
             raise ValueError("Message id required")
@@ -75,6 +83,10 @@ class GmailArchiveAction(BaseAction):
             filename = part.get("filename")
             att_id = part.get("body", {}).get("attachmentId")
             if filename and att_id:
+                if ext_filter and not any(
+                    filename.lower().endswith(ext) for ext in ext_filter
+                ):
+                    continue
                 raw = (
                     service.users()
                     .messages()
@@ -88,21 +100,24 @@ class GmailArchiveAction(BaseAction):
 
         folder_name = str(msg_id)
         storage_path = ""
-        if local_dir:
+        need_storage = save_message or bool(files)
+        if need_storage and local_dir:
             folder = Path(local_dir) / folder_name
             folder.mkdir(parents=True, exist_ok=True)
-            with open(folder / "message.txt", "w", encoding="utf-8") as fh:
-                fh.write(snippet)
+            if save_message:
+                with open(folder / "message.txt", "w", encoding="utf-8") as fh:
+                    fh.write(snippet)
             for name, content in files:
                 with open(folder / name, "wb") as fh:
                     fh.write(content)
             storage_path = str(folder)
-        else:
+        elif need_storage:
             if not token:
                 raise ValueError("token required for Google Drive upload")
             folder_id = self._create_drive_folder(folder_name, drive_parent, token)
             uploader = GDriveUploadAction({"folder_id": folder_id, "token": token})
-            uploader.execute({"content": snippet.encode(), "filename": "message.txt"})
+            if save_message:
+                uploader.execute({"content": snippet.encode(), "filename": "message.txt"})
             for name, content in files:
                 uploader.execute({"content": content, "filename": name})
             storage_path = folder_id

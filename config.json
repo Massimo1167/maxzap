@@ -21,8 +21,15 @@
         "interval": 60
       },
       "actions": [
-        {"type": "gmail_archive", "params": {"local_dir": "../gmail/archive"}},
-        {"type": "excel_append", "params": {"file": "../gmail/log.xlsx"}}
+        {
+          "type": "gmail_archive",
+          "params": {
+            "local_dir": "./archive",
+            "attachment_types": [".pdf"],
+            "save_message": false
+          }
+        },
+        {"type": "excel_append", "params": {"file": "log.xlsx"}}
       ]
     }
   ]
