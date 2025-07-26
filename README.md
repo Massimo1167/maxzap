@@ -80,7 +80,9 @@ that can be appended to a spreadsheet:
   you skip saving the message body with `save_message` (defaults to `true`),
   skip saving attachments with `save_attachments` (defaults to `true`),
   filter attachments by extension using `attachment_types` (e.g. `[".pdf"]`),
-  download file links found in the message body with `download_links`, and
+  download file links found in the message body with `download_links`. Links are
+  detected in both plain text and HTML `href` attributes and file names are
+  derived from `Content-Disposition` headers when needed, and
   automatically fetch text parts delivered via `attachmentId`. Quoted replies
   are stripped from the saved message.
 * `imap_archive` &ndash; similar functionality for standard IMAP servers. It

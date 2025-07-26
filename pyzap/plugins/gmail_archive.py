@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from urllib import request
 from urllib.parse import urlparse
 import re
+import html
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -161,19 +162,31 @@ class GmailArchiveAction(BaseAction):
             )
         )
         message_text = self._strip_replies(message_text)
+        message_text = html.unescape(message_text)
 
         if download_links:
-            for url in re.findall(r"https?://\S+", message_text):
-                parsed = urlparse(url)
-                name = os.path.basename(parsed.path)
-                ext = Path(name).suffix.lower()
-                if not name:
-                    continue
-                if ext_filter and ext not in ext_filter:
-                    continue
+            urls = set(re.findall(r"https?://[^\s\"<>]+", message_text))
+            urls.update(re.findall(r'href=[\"\'](https?://[^\"\']+)', message_text))
+            for url in urls:
                 try:
                     with request.urlopen(url) as resp:
+                        headers = getattr(resp, "headers", None)
+                        if headers is not None:
+                            cd = headers.get("Content-Disposition", "")
+                        else:
+                            cd = getattr(resp, "getheader", lambda x, default="": default)("Content-Disposition")
                         content = resp.read()
+                    parsed = urlparse(url)
+                    name = os.path.basename(parsed.path)
+                    if not name or not Path(name).suffix:
+                        m = re.search(r'filename="?([^";]+)"?', cd)
+                        if m:
+                            name = os.path.basename(m.group(1))
+                    if not name:
+                        name = "downloaded_file"
+                    ext = Path(name).suffix.lower()
+                    if ext_filter and ext not in ext_filter:
+                        continue
                     files.append((name, content))
                     attachments.append(name)
                 except Exception:
