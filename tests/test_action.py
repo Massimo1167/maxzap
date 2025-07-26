@@ -121,25 +121,36 @@ def _setup_gmail(monkeypatch):
 
         class Attachments:
             def get(self, userId="me", messageId=None, id=None):
-                data = base64.urlsafe_b64encode(b'file').decode()
+                if id == "1":
+                    data = base64.urlsafe_b64encode(b"file").decode()
+                else:
+                    data = base64.urlsafe_b64encode(
+                        b"body http://example.com/file.pdf"
+                    ).decode()
                 return Execute({"data": data})
 
         class Messages:
             def get(self, userId="me", id=None, format=None):
-                return Execute({
-                    "id": id,
-                    "snippet": "body http://example.com/file.pdf",
-                    "payload": {
-                        "headers": [
-                            {"name": "From", "value": "f"},
-                            {"name": "Subject", "value": "s"},
-                            {"name": "Date", "value": "d"},
-                        ],
-                        "parts": [
-                            {"filename": "a.txt", "body": {"attachmentId": "1"}}
-                        ],
-                    },
-                })
+                return Execute(
+                    {
+                        "id": id,
+                        "snippet": "ignored",
+                        "payload": {
+                            "headers": [
+                                {"name": "From", "value": "f"},
+                                {"name": "Subject", "value": "s"},
+                                {"name": "Date", "value": "d"},
+                            ],
+                            "parts": [
+                                {
+                                    "mimeType": "text/plain",
+                                    "body": {"attachmentId": "2"},
+                                },
+                                {"filename": "a.txt", "body": {"attachmentId": "1"}},
+                            ],
+                        },
+                    }
+                )
 
             def attachments(self):
                 return Attachments()
@@ -327,6 +338,7 @@ def test_gmail_archive_links(monkeypatch, tmp_path):
     result = action.execute({'id': '123'})
     folder = tmp_path / '123'
     assert folder.exists()
+    assert (folder / 'message.txt').read_text() == 'body http://example.com/file.pdf'
     assert (folder / 'file.pdf').read_bytes() == b'linked'
     assert 'file.pdf' in result['attachments']
 
