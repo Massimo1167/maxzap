@@ -182,6 +182,115 @@ def _setup_gmail(monkeypatch):
         monkeypatch.setitem(sys.modules, name, mod)
 
 
+def _setup_gmail_html(monkeypatch):
+    """Setup Gmail mocks returning an HTML body with a link."""
+    import types, base64, sys
+
+    google = types.ModuleType('google')
+    oauth2 = types.ModuleType('google.oauth2')
+    creds_mod = types.ModuleType('google.oauth2.credentials')
+
+    class DummyCreds:
+        expired = False
+        refresh_token = None
+
+        def refresh(self, req):
+            pass
+
+        @staticmethod
+        def from_authorized_user_file(path, scopes):
+            return DummyCreds()
+
+    creds_mod.Credentials = DummyCreds
+    oauth2.credentials = creds_mod
+    google.oauth2 = oauth2
+
+    auth = types.ModuleType('google.auth')
+    transport = types.ModuleType('google.auth.transport')
+    req_mod = types.ModuleType('google.auth.transport.requests')
+
+    class Request:
+        pass
+
+    req_mod.Request = Request
+    transport.requests = req_mod
+    auth.transport = transport
+    google.auth = auth
+
+    gapi = types.ModuleType('googleapiclient')
+    disc = types.ModuleType('googleapiclient.discovery')
+
+    def fake_build(*args, **kwargs):
+        class Execute:
+            def __init__(self, data):
+                self.data = data
+
+            def execute(self):
+                return self.data
+
+        class Attachments:
+            def get(self, userId="me", messageId=None, id=None):
+                if id == "1":
+                    data = base64.urlsafe_b64encode(b"file").decode()
+                else:
+                    data = base64.urlsafe_b64encode(
+                        b"body <a href=\"http://example.com/download\">link</a>"
+                    ).decode()
+                return Execute({"data": data})
+
+        class Messages:
+            def get(self, userId="me", id=None, format=None):
+                return Execute(
+                    {
+                        "id": id,
+                        "snippet": "ignored",
+                        "payload": {
+                            "headers": [
+                                {"name": "From", "value": "f"},
+                                {"name": "Subject", "value": "s"},
+                                {"name": "Date", "value": "d"},
+                            ],
+                            "parts": [
+                                {
+                                    "mimeType": "text/html",
+                                    "body": {"attachmentId": "2"},
+                                },
+                                {"filename": "a.txt", "body": {"attachmentId": "1"}},
+                            ],
+                        },
+                    }
+                )
+
+            def attachments(self):
+                return Attachments()
+
+        class Users:
+            def messages(self):
+                return Messages()
+
+        class Service:
+            def users(self):
+                return Users()
+
+        return Service()
+
+    disc.build = fake_build
+    gapi.discovery = disc
+
+    modules = {
+        'google': google,
+        'google.oauth2': oauth2,
+        'google.oauth2.credentials': creds_mod,
+        'google.auth': auth,
+        'google.auth.transport': transport,
+        'google.auth.transport.requests': req_mod,
+        'googleapiclient': gapi,
+        'googleapiclient.discovery': disc,
+    }
+    for name, mod in modules.items():
+        monkeypatch.setitem(sys.modules, name, mod)
+
+
 def test_slack_notify(monkeypatch):
     store = {}
     _patch_urlopen(monkeypatch, store)
@@ -351,6 +460,43 @@ def test_gmail_archive_links_no_attachments(monkeypatch, tmp_path):
     action_cls = module.GmailArchiveAction
 
     class DummyLinkResponse:
+        def read(self):
+            return b'linked'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(urllib.request, 'urlopen', lambda req: DummyLinkResponse())
+    action = action_cls({
+        'token_file': 'token.json',
+        'local_dir': str(tmp_path),
+        'save_attachments': False,
+        'download_links': True,
+        'attachment_types': ['.pdf'],
+    })
+    result = action.execute({'id': '123'})
+    folder = tmp_path / '123'
+    assert folder.exists()
+    assert (folder / 'file.pdf').read_bytes() == b'linked'
+    assert result['attachments'] == ['file.pdf']
+
+
+def test_gmail_archive_html_link_header(monkeypatch, tmp_path):
+    _setup_gmail_html(monkeypatch)
+    import importlib
+    module = importlib.import_module('pyzap.plugins.gmail_archive')
+    module = importlib.reload(module)
+    action_cls = module.GmailArchiveAction
+
+    class DummyLinkResponse:
+        def __init__(self):
+            self.headers = {
+                'Content-Disposition': 'attachment; filename="file.pdf"'
+            }
+
         def read(self):
             return b'linked'
 
