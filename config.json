@@ -16,7 +16,7 @@
         "_comment_query0": "La query utilizza gli operatori di ricerca standard di Gmail. Questa cerca email non lette, non speciali e con allegato da un mittente specifico.",
         "_comment_query1": "opzioni: label:inbox is:unread is:starred has:attachment (-is:starred OR -has:attachment) {-is:starred -has:attachment}",
         "_comment_query2": "Esempio di query: from:pierino.centrella@gmail.com label:inbox is:unread",
-        "query": "label:inbox",
+        "query": "from:aziendaagricolapezzuoli@gmail.com label:inbox",
         "max_results": 50,
         "interval": 60
       },
