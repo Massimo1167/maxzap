@@ -311,3 +311,17 @@ def test_excel_append(monkeypatch, tmp_path):
     wb2 = openpyxl.load_workbook(file_path)
     row = [cell.value for cell in wb2.active[1]]
     assert row == [1, 2]
+
+
+def test_excel_append_missing_dependency(monkeypatch, tmp_path):
+    """excel_append should error gracefully when openpyxl is unavailable."""
+    import importlib, sys
+
+    monkeypatch.delitem(sys.modules, 'openpyxl', raising=False)
+    module = importlib.import_module('pyzap.plugins.excel_append')
+    module = importlib.reload(module)
+    ExcelAppendAction = module.ExcelAppendAction
+
+    action = ExcelAppendAction({'file': str(tmp_path / 'book.xlsx')})
+    with pytest.raises(RuntimeError):
+        action.execute({'values': [1, 2]})
