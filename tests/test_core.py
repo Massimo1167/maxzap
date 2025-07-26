@@ -175,3 +175,43 @@ def test_main_loop_sigterm(monkeypatch, tmp_path):
 
     assert handlers.get("handler") is not None
     assert created["engine"].stop_called
+
+
+def test_load_plugins(monkeypatch, tmp_path):
+    """load_plugins() should register trigger and action classes found in the plugins package."""
+    plugins_dir = tmp_path / "plugins"
+    plugins_dir.mkdir()
+
+    # minimal plugin package
+    (plugins_dir / "__init__.py").write_text("")
+    (plugins_dir / "foo.py").write_text(
+        "from pyzap.core import BaseTrigger\n"
+        "class FooTrigger(BaseTrigger):\n"
+        "    def poll(self):\n"
+        "        return []\n"
+    )
+    (plugins_dir / "bar.py").write_text(
+        "from pyzap.core import BaseAction\n"
+        "class BarAction(BaseAction):\n"
+        "    def execute(self, data):\n"
+        "        return {}\n"
+    )
+
+    import importlib, sys
+
+    # point the plugins package to the temp directory
+    pkg = importlib.import_module("pyzap.plugins")
+    monkeypatch.setattr(pkg, "__path__", [str(plugins_dir)])
+
+    # fake core file path so load_plugins uses our temp plugins directory
+    monkeypatch.setattr(core, "__file__", str(tmp_path / "core.py"))
+
+    monkeypatch.setattr(core, "TRIGGERS", {})
+    monkeypatch.setattr(core, "ACTIONS", {})
+    sys.modules.pop("pyzap.plugins.foo", None)
+    sys.modules.pop("pyzap.plugins.bar", None)
+
+    core.load_plugins()
+
+    assert set(core.TRIGGERS.keys()) == {"foo"}
+    assert set(core.ACTIONS.keys()) == {"bar"}
