@@ -24,14 +24,14 @@
         {
           "type": "gmail_archive",
           "params": {
-        "local_dir": "./archive",
+        "local_dir": "../gmail/archive",
         "attachment_types": [".pdf"],
-        "save_message": true,
+        "save_message": false,
         "save_attachments": true,
         "download_links": true
       }
         },
-        {"type": "excel_append", "params": {"file": "log.xlsx"}}
+        {"type": "excel_append", "params": {"file": "../gmail/log.xlsx"}}
       ]
     }
   ]
