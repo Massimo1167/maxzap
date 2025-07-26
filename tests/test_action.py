@@ -15,8 +15,14 @@ from pyzap.plugins.sheets_append import SheetsAppendAction
 from pyzap.plugins.gdrive_upload import GDriveUploadAction
 
 class DummyResponse:
+    def __init__(self, status: int = 200):
+        self._status = status
+
     def read(self):
         return b""
+
+    def getcode(self):
+        return self._status
 
 def _patch_urlopen(monkeypatch, store):
     def fake(req):
@@ -198,6 +204,16 @@ def test_gdrive_upload(monkeypatch, tmp_path):
     assert 'upload/drive/v3/files' in req.full_url
     assert req.headers['Authorization'] == 'Bearer TT'
     assert b'hello' in req.data
+
+
+def test_gdrive_upload_status_error(monkeypatch):
+    def fake(req):
+        return DummyResponse(status=400)
+
+    monkeypatch.setattr(urllib.request, 'urlopen', fake)
+    action = GDriveUploadAction({'folder_id': 'FID', 'token': 'TT'})
+    with pytest.raises(RuntimeError):
+        action.execute({'content': b'data'})
 
 
 def test_slack_notify_error(monkeypatch):

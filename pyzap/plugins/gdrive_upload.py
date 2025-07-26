@@ -79,7 +79,15 @@ class GDriveUploadAction(BaseAction):
         )
 
         try:
-            request.urlopen(req)
+            resp = request.urlopen(req)
+            status = None
+            if hasattr(resp, "getcode"):
+                status = resp.getcode()
+            elif hasattr(resp, "status"):
+                status = resp.status
+            if status is not None and not 200 <= status < 300:
+                logging.error("Google Drive upload failed with status %s", status)
+                raise RuntimeError("Google Drive upload failed")
             logging.info("Google Drive upload successful")
         except Exception as exc:  # pylint: disable=broad-except
             logging.exception("Google Drive upload failed: %s", exc)
