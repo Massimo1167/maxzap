@@ -93,20 +93,38 @@ the log before continuing. This is useful when troubleshooting new workflows.
 
 ## Generating a Gmail API token
 
-The `gmail_poll` trigger requires an OAuth token file created from Google API credentials. Download `credentials.json` for a *Desktop app* from the Google Cloud console with Gmail and Drive APIs enabled. Then run:
+Several plugins use Google APIs. You need an OAuth token generated from a
+`credentials.json` file created in the
+[Google Cloud console](https://console.cloud.google.com/).
+Enable both the **Gmail API** and the **Drive API** for your project and create a
+**Desktop application** OAuth client. Download the resulting `credentials.json`
+and follow these steps:
 
-```bash
-python get_gmail_token.py
-```
+1. Place `credentials.json` in the repository root.
+2. Run the helper script to start the OAuth flow:
 
-Your browser will open to authorize access. When the flow completes a `token.json` file is created. Place this file next to `config.json` (or specify its path via the `token_file` setting) so PyZap can authenticate.
+   ```bash
+   python get_gmail_token.py
+   ```
+
+3. A browser window will prompt you to log in and grant access. When finished,
+   a `token.json` file is created.
+4. Move `token.json` next to your `config.json` file (or reference it with the
+   `token_file` option) so PyZap can authenticate.
 
 ### Scopes used
 
-The default token requests the following OAuth scopes:
+`get_gmail_token.py` requests the following scopes by default:
 
-* https://www.googleapis.com/auth/drive.metadata.readonly
-* https://www.googleapis.com/auth/gmail.readonly
+* `https://www.googleapis.com/auth/drive.metadata.readonly` – needed for basic
+  Drive listing operations.
+* `https://www.googleapis.com/auth/gmail.readonly` – allows reading messages for
+  the polling and archive actions.
 
-Adjust `get_gmail_token.py` if your workflows need additional scopes.
+To use the `gmail_archive` action you must also include
+`https://www.googleapis.com/auth/drive.file` which grants read/write access to
+files that PyZap uploads to your Drive. Edit the `SCOPES` list in
+`get_gmail_token.py` if additional permissions are required. See Google's
+[OAuth 2.0 scopes documentation](https://developers.google.com/identity/protocols/oauth2/scopes)
+for reference.
 
