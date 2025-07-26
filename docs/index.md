@@ -26,6 +26,8 @@ Follow the browser flow and place the generated `token.json` next to your `confi
 
 The Gmail trigger also accepts a `max_results` option to control how many
 messages are fetched on each poll.
+You can monitor multiple Gmail accounts in one workflow by providing an
+`accounts` list containing per-account `token_file` and `query` values.
 
 Other actions like Google Drive uploads or Sheets updates expect a bearer token in the `GDRIVE_TOKEN` environment variable. Slack notifications simply need a webhook URL.
 

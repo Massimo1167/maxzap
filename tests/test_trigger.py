@@ -113,6 +113,27 @@ def test_gmail_poll_error(monkeypatch):
     assert trigger.poll() == []
 
 
+def test_gmail_poll_multiple(monkeypatch):
+    """Polling multiple Gmail accounts should merge results."""
+    _setup_google(monkeypatch, success=True)
+    import importlib
+    module = importlib.import_module("pyzap.plugins.gmail_poll")
+    module = importlib.reload(module)
+    GmailPollTrigger = module.GmailPollTrigger
+
+    trigger = GmailPollTrigger(
+        {
+            "accounts": [
+                {"token_file": "a.json", "query": "q1"},
+                {"token_file": "b.json", "query": "q2"},
+            ]
+        }
+    )
+    msgs = trigger.poll()
+    assert len(msgs) == 2
+    assert {m["token_file"] for m in msgs} == {"a.json", "b.json"}
+
+
 def test_imap_poll(monkeypatch):
     from pyzap.plugins.imap_poll import ImapPollTrigger
 

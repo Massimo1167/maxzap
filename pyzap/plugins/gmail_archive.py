@@ -100,7 +100,7 @@ class GmailArchiveAction(BaseAction):
         return data["id"]
 
     def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        token_file = self.params.get("token_file", "token.json")
+        token_file = self.params.get("token_file") or data.get("token_file", "token.json")
         drive_parent = self.params.get("drive_folder_id")
         local_dir = self.params.get("local_dir")
         token = self.params.get("token") or os.environ.get("GDRIVE_TOKEN")
