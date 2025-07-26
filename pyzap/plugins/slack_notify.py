@@ -19,8 +19,17 @@ class SlackNotifyAction(BaseAction):
         webhook = self.params.get("webhook_url")
         text = data.get("text") or data.get("message")
 
-        if not webhook or text is None:
-            logging.error("Slack webhook configuration missing")
+        missing = []
+        if not webhook:
+            missing.append("webhook_url")
+        if text is None:
+            missing.append("text")
+
+        if missing:
+            logging.error(
+                "Slack webhook configuration missing: %s",
+                ", ".join(missing),
+            )
             return
 
         logging.info("Sending Slack notification")
