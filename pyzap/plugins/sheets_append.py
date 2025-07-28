@@ -49,15 +49,31 @@ class SheetsAppendAction(BaseAction):
 
         logging.info("Appending row to sheet %s range %s", sheet_id, range_)
 
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+
+        # Check for existing row
+        try:
+            get_url = (
+                f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/"
+                f"{parse.quote(range_)}"
+            )
+            get_req = request.Request(get_url, headers={"Authorization": f"Bearer {token}"})
+            with request.urlopen(get_req) as resp:
+                existing = json.loads(resp.read().decode())
+            if values in existing.get("values", []):
+                logging.info("Row already exists, skipping append")
+                return
+        except Exception:
+            pass
+
         url = (
             f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/"
             f"{parse.quote(range_)}:append?valueInputOption=USER_ENTERED"
         )
         body = json.dumps({"values": [values]}).encode()
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        }
 
         req = request.Request(url, data=body, headers=headers)
 
