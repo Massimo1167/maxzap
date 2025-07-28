@@ -1,0 +1,78 @@
+from __future__ import annotations
+
+import os
+import re
+from typing import Any, Dict, List
+
+from ..core import BaseAction
+
+
+class PDFSplitAction(BaseAction):
+    """Split a PDF file into smaller PDFs."""
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            from PyPDF2 import PdfReader, PdfWriter  # type: ignore
+        except ImportError as exc:  # pragma: no cover - dependency missing
+            raise RuntimeError(
+                "pdf_split action requires the 'PyPDF2' package. Install it with 'pip install PyPDF2'."
+            ) from exc
+
+        pdf_path = data.get("pdf_path")
+        output_dir = self.params.get("output_dir")
+        pattern = self.params.get("pattern")
+        name_template = self.params.get("name_template", "split_{index}.pdf")
+        regex_fields: Dict[str, str] = self.params.get("regex_fields", {})
+
+        if not pdf_path:
+            raise ValueError("pdf_path parameter required")
+        if not output_dir:
+            raise ValueError("output_dir parameter required")
+
+        os.makedirs(output_dir, exist_ok=True)
+
+        reader = PdfReader(pdf_path)
+        files: List[str] = []
+        records: List[Dict[str, Any]] = []
+
+        writer = None
+        fields: Dict[str, Any] = {}
+        index = 1
+
+        for page in reader.pages:
+            text = page.extract_text() or ""
+            if pattern and re.search(pattern, text) and writer:
+                info = {**data, **fields, "index": index}
+                filename = name_template.format(**info)
+                path = os.path.join(output_dir, filename)
+                with open(path, "wb") as fh:
+                    writer.write(fh)
+                files.append(path)
+                records.append({**fields, "file": path})
+                writer = None
+                fields = {}
+                index += 1
+
+            if writer is None:
+                writer = PdfWriter()
+            writer.add_page(page)
+
+            for key, regex in regex_fields.items():
+                if key not in fields:
+                    m = re.search(regex, text)
+                    if m:
+                        fields[key] = m.group(1) if m.groups() else m.group(0)
+
+        if writer and getattr(writer, "getNumPages", lambda: len(getattr(writer, "pages", [])))() > 0:
+            info = {**data, **fields, "index": index}
+            filename = name_template.format(**info)
+            path = os.path.join(output_dir, filename)
+            with open(path, "wb") as fh:
+                writer.write(fh)
+            files.append(path)
+            records.append({**fields, "file": path})
+
+        data["files"] = files
+        if records:
+            data["records"] = records
+        return data

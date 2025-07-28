@@ -124,3 +124,5 @@ Related actions can modify Excel files or work with row data:
 * `file_create` &ndash; save row data to a text, JSON or CSV file.
 * `attachment_download` &ndash; download files referenced in a row and optionally
   rename them based on placeholders.
+* `pdf_split` &ndash; split a PDF into separate files using a text pattern and
+  naming template.
