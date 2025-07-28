@@ -733,3 +733,57 @@ def test_excel_append_skip_duplicate(monkeypatch, tmp_path):
 
     wb2 = openpyxl.load_workbook(file_path)
     assert wb2.active.rows == [[1, 2]]
+
+
+def _setup_pypdf(monkeypatch):
+    import types, sys
+
+    pypdf = types.ModuleType('PyPDF2')
+
+    class Page:
+        def __init__(self, text):
+            self._text = text
+
+        def extract_text(self):
+            return self._text
+
+    class Reader:
+        def __init__(self, path):
+            self.pages = [Page('start invoice 1'), Page('start invoice 2')]
+
+    class Writer:
+        def __init__(self):
+            self.pages = []
+
+        def add_page(self, page):
+            self.pages.append(page)
+
+        def write(self, fh):
+            fh.write(b'pdf')
+
+        def getNumPages(self):
+            return len(self.pages)
+
+    pypdf.PdfReader = Reader
+    pypdf.PdfWriter = Writer
+    monkeypatch.setitem(sys.modules, 'PyPDF2', pypdf)
+
+
+def test_pdf_split(monkeypatch, tmp_path):
+    _setup_pypdf(monkeypatch)
+    import importlib
+
+    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.reload(module)
+    action_cls = module.PDFSplitAction
+
+    src = tmp_path / 'src.pdf'
+    src.write_bytes(b'data')
+
+    out_dir = tmp_path / 'out'
+    action = action_cls({'output_dir': str(out_dir), 'pattern': 'start', 'name_template': 'file_{index}.pdf'})
+    result = action.execute({'pdf_path': str(src)})
+
+    files = sorted(out_dir.glob('*.pdf'))
+    assert len(files) == 2
+    assert result['files'] == [str(f) for f in files]
