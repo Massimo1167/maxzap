@@ -31,6 +31,15 @@ You can monitor multiple Gmail accounts in one workflow by providing an
 
 Other actions like Google Drive uploads or Sheets updates expect a bearer token in the `GDRIVE_TOKEN` environment variable. Slack notifications simply need a webhook URL.
 
+## Excel workflows
+
+PyZap can also monitor local Excel workbooks using several triggers. `excel_poll`
+detects new rows, `excel_cell` watches for changes in selected columns and
+`excel_file` fires whenever the file is modified. `excel_attachments` behaves
+like `excel_poll` but parses a column containing comma separated file paths.
+Related actions such as `excel_upsert`, `file_create`, `file_download` and
+`file_rename` help process the extracted data.
+
 ## Running the engine
 
 Use the CLI to start the workflow engine:
