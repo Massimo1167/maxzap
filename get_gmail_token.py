@@ -8,6 +8,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 # SCOPES: modifica se serve un ambito diverso
 SCOPES = [
     'https://www.googleapis.com/auth/drive.metadata.readonly',
+    'https://www.googleapis.com/auth/drive.file',
     'https://www.googleapis.com/auth/gmail.readonly'
 ]
 

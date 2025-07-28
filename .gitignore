@@ -1,7 +1,9 @@
 __pycache__/
 *.pyc
-pyzap.log
 .env
+pyzap.log*
+token*.json
+credentials*.json
 credentials.json
 credentials.json.old
 token.json

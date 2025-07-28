@@ -1,0 +1,76 @@
+Note di aiuto per il file di configurazione
+
+1) Multi accounts
+Il supporto per più account Gmail si configura nel trigger gmail_poll aggiungendo la chiave accounts.
+Nella documentazione viene spiegato che ciascun workflow può indicare diversi account con il proprio token_file e la propria query:
+
+{
+  "admin_email": "...",
+  "smtp": {...},
+  "workflows": [
+    {
+      "id": "example-zap",
+      "trigger": {
+        "type": "gmail_poll",
+        "max_results": 50,
+        "interval": 60,
+        "accounts": [
+          {"token_file": "token_account1.json", "query": "label:inbox is:unread"},
+          {"token_file": "token_account2.json", "query": "label:inbox"}
+        ]
+      },
+      "actions": [...]
+    }
+  ]
+}
+
+Ogni elemento dell’elenco accounts può specificare anche max_results se serve un valore diverso per quell’account. Le altre parti del file restano invariate.
+
+**************
+
+2) Query Gmail
+Gli operatori di ricerca standard per Gmail permettono di raffinare le ricerche e trovare rapidamente le email desiderate. 
+Questi operatori possono essere usati nella barra di ricerca di Gmail e includono: from:, to:, cc:, bcc:, subject:, e operatori di data come before: e after:. 
+
+opzioni: 
+label:inbox 
+is:unread 
+is:starred : 
+-is:starred : il segno - server per condizione negata
+has:attachment 
+(-is:starred OR -has:attachment) :  raggruppa le condizioni
+{-is:starred -has:attachment} : le raggruppa in modo OR implicito
+
+Ecco alcuni esempi pratici: 
+from:nome.cognome@esempio.com: Trova email inviate da un specifico indirizzo.
+to:destinatario@esempio.com: Trova email inviate a un determinato destinatario.
+cc:copia@esempio.com: Trova email in cui l'indirizzo è incluso nel campo "Copia conoscenza".
+bcc:nascosto@esempio.com: Trova email in cui l'indirizzo è incluso nel campo "Copia conoscenza nascosta".
+subject:vacanza: Trova email con la parola "vacanza" nell'oggetto.
+before:2024/07/28: Trova email ricevute prima della data specificata.
+after:2024/07/27: Trova email ricevute dopo la data specificata.
+filename:documento.pdf: Trova email con allegati contenenti la parola "documento.pdf".
+has:attachment: Trova email che contengono allegati.
+
+Questi operatori possono essere combinati per ricerche più complesse. 
+Ad esempio: 
+from:amministratore@esempio.com subject:aggiornamento before:2024/07/20 
+cercherà email inviate dall'indirizzo amministratore con "aggiornamento" nell'oggetto, ricevute prima del 20 luglio 2024. 
+
+**************
+3) get_gmail_token.py requests the following scopes by default:
+
+* `https://www.googleapis.com/auth/drive.metadata.readonly` – needed for basic
+  Drive listing operations.
+* `https://www.googleapis.com/auth/gmail.readonly` – allows reading messages for
+  the polling and archive actions.
+
+* `https://www.googleapis.com/auth/drive.file` which grants read/write access to files that PyZap uploads to your Drive.
+  To use the `gmail_archive` action you must also include
+ 
+
+Edit the `SCOPES` list in `get_gmail_token.py` if additional permissions are required. See Google's
+[OAuth 2.0 scopes documentation]
+(https://developers.google.com/identity/protocols/oauth2/scopes)
+(https://developers.google.com/workspace/drive/api/guides/api-specific-auth?hl=it)
+for reference.

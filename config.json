@@ -13,12 +13,12 @@
       "_comment_trigger": "Questo trigger controlla la casella Gmail a intervalli regolari.",
       "trigger": {
         "type": "gmail_poll",
-        "_comment_query0": "La query utilizza gli operatori di ricerca standard di Gmail. Questa cerca email non lette, non speciali e con allegato da un mittente specifico.",
-        "_comment_query1": "opzioni: label:inbox is:unread is:starred has:attachment (-is:starred OR -has:attachment) {-is:starred -has:attachment}",
-        "_comment_query2": "Esempio di query: from:pierino.centrella@gmail.com label:inbox is:unread",
-        "query": "from:azienda.agricola.pezzuoli@gmail.com label:inbox",
         "max_results": 50,
-        "interval": 60
+        "interval": 60,
+		"accounts": [
+		  {"token_file": "token_mcentrella.json", "query": "from:azienda.agricola.pezzuoli@gmail.com label:inbox"},
+		  {"token_file": "token_pierinocentrella.json", "query": "from:azienda.agricola.pezzuoli@gmail.com label:inbox"}
+		]
       },
       "actions": [
         {
