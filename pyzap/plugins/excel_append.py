@@ -48,5 +48,21 @@ class ExcelAppendAction(BaseAction):
                 return json.dumps(value, ensure_ascii=False)
             return value
 
-        ws.append([_convert(v, n) for v, n in zip(values, field_names)])
-        wb.save(file_path)
+        row = [_convert(v, n) for v, n in zip(values, field_names)]
+        exists = False
+        try:
+            rows = getattr(ws, "rows", None)
+            if rows is not None:
+                if row in list(rows):
+                    exists = True
+            else:
+                for existing in ws.values:
+                    if list(existing)[: len(row)] == row:
+                        exists = True
+                        break
+        except Exception:
+            pass
+
+        if not exists:
+            ws.append(row)
+            wb.save(file_path)

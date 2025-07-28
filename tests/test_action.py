@@ -15,18 +15,26 @@ from pyzap.plugins.sheets_append import SheetsAppendAction
 from pyzap.plugins.gdrive_upload import GDriveUploadAction
 
 class DummyResponse:
-    def __init__(self, status: int = 200):
+    def __init__(self, status: int = 200, data: bytes = b""):
         self._status = status
+        self._data = data
 
     def read(self):
-        return b""
+        return self._data
 
     def getcode(self):
         return self._status
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        pass
+
 def _patch_urlopen(monkeypatch, store):
     def fake(req):
         store['req'] = req
+        store.setdefault('reqs', []).append(req)
         return DummyResponse()
     monkeypatch.setattr(urllib.request, 'urlopen', fake)
 
@@ -303,7 +311,14 @@ def test_slack_notify(monkeypatch):
 
 def test_sheets_append(monkeypatch):
     store = {}
-    _patch_urlopen(monkeypatch, store)
+    def fake(req):
+        store.setdefault('reqs', []).append(req)
+        if req.data is None:
+            return DummyResponse(data=json.dumps({'values': []}).encode())
+        store['req'] = req
+        return DummyResponse()
+
+    monkeypatch.setattr(urllib.request, 'urlopen', fake)
     action = SheetsAppendAction({'sheet_id': 'SID', 'range': 'Sheet1!A1', 'token': 'T'})
     action.execute({'values': ['a', 'b']})
     req = store['req']
@@ -311,6 +326,7 @@ def test_sheets_append(monkeypatch):
     assert 'Sheet1%21A1' in req.full_url
     assert req.headers['Authorization'] == 'Bearer T'
     assert json.loads(req.data.decode()) == {'values': [['a', 'b']]}
+    assert len(store['reqs']) == 2
 
 
 def test_gdrive_upload(monkeypatch, tmp_path):
@@ -683,3 +699,37 @@ def test_excel_append_missing_dependency(monkeypatch, tmp_path):
     action = ExcelAppendAction({'file': str(tmp_path / 'book.xlsx')})
     with pytest.raises(RuntimeError):
         action.execute({'values': [1, 2]})
+
+
+def test_sheets_append_skip_duplicate(monkeypatch):
+    store = {}
+
+    def fake(req):
+        store.setdefault('reqs', []).append(req)
+        if req.data is None:
+            return DummyResponse(data=json.dumps({'values': [['x', 'y']]}).encode())
+        store['req'] = req
+        pytest.fail('Should not append when row already exists')
+
+    monkeypatch.setattr(urllib.request, 'urlopen', fake)
+    action = SheetsAppendAction({'sheet_id': 'SID', 'range': 'Sheet1!A1', 'token': 'T'})
+    action.execute({'values': ['x', 'y']})
+    assert len(store['reqs']) == 1
+
+
+def test_excel_append_skip_duplicate(monkeypatch, tmp_path):
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module('openpyxl')
+    ExcelAppendAction = importlib.import_module('pyzap.plugins.excel_append').ExcelAppendAction
+
+    file_path = tmp_path / 'book.xlsx'
+    wb = openpyxl.Workbook()
+    wb.save(file_path)
+
+    action = ExcelAppendAction({'file': str(file_path)})
+    action.execute({'a': 1, 'b': 2})
+    action.execute({'a': 1, 'b': 2})
+
+    wb2 = openpyxl.load_workbook(file_path)
+    assert wb2.active.rows == [[1, 2]]
