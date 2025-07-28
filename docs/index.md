@@ -102,3 +102,25 @@ metadata into spreadsheet appenders:
 
 The same concept works with `imap_archive` in place of `gmail_archive` and the
 `sheets_append` action for Google Sheets.
+
+## Excel triggers and actions
+
+Several additional triggers help monitor local Excel files:
+
+* `excel_row_added` &ndash; detects new rows appended to a workbook with optional
+  advanced filters including regular expressions and numeric comparisons.
+* `excel_cell_change` &ndash; fires when specified columns change value.
+* `excel_file_updated` &ndash; fires whenever the workbook file modification time
+  changes.
+* `excel_attachment_row` &ndash; like `excel_row_added` but only returns rows
+  where a configured attachment column contains data. The list of attachments is
+  provided in the payload.
+
+Related actions can modify Excel files or work with row data:
+
+* `excel_write_row` &ndash; create or update a row in a workbook.
+* `email_send` &ndash; send an email using SMTP.
+* `db_save` &ndash; store row data in a SQLite database.
+* `file_create` &ndash; save row data to a text, JSON or CSV file.
+* `attachment_download` &ndash; download files referenced in a row and optionally
+  rename them based on placeholders.
