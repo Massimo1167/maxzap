@@ -1,6 +1,8 @@
 import sys
 import types
 import imaplib
+import os
+import pytest
 from pathlib import Path
 
 # Ensure project root on path for test imports
@@ -90,6 +92,51 @@ def _setup_google(monkeypatch, success=True):
         monkeypatch.setitem(sys.modules, name, mod)
 
 
+def _setup_openpyxl(monkeypatch):
+    """Create a fake openpyxl module for Excel tests."""
+    import types
+    import json
+
+    openpyxl = types.ModuleType("openpyxl")
+
+    class DummyCell:
+        def __init__(self, value):
+            self.value = value
+
+    class Worksheet:
+        def __init__(self):
+            self.rows = []
+
+        def append(self, values):
+            self.rows.append(list(values))
+
+        def __getitem__(self, idx):
+            row = self.rows[idx - 1]
+            return [DummyCell(v) for v in row]
+
+    class Workbook:
+        def __init__(self):
+            self.active = Worksheet()
+
+        def save(self, path):
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(self.active.rows, fh)
+
+        def __getitem__(self, name):
+            return self.active
+
+    def load_workbook(path):
+        wb = Workbook()
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as fh:
+                wb.active.rows = json.load(fh)
+        return wb
+
+    openpyxl.Workbook = Workbook
+    openpyxl.load_workbook = load_workbook
+    monkeypatch.setitem(sys.modules, "openpyxl", openpyxl)
+
+
 def test_gmail_poll_success(monkeypatch):
     _setup_google(monkeypatch, success=True)
     import importlib
@@ -170,3 +217,130 @@ def test_imap_poll_missing_config():
 
     trigger = ImapPollTrigger({})
     assert trigger.poll() == []
+
+
+def test_excel_poll(monkeypatch, tmp_path):
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module("openpyxl")
+    ExcelPollTrigger = importlib.import_module(
+        "pyzap.plugins.excel_poll"
+    ).ExcelPollTrigger
+
+    file_path = tmp_path / "book.xlsx"
+    state = tmp_path / "state.txt"
+    wb = openpyxl.Workbook()
+    wb.active.append(["a", "b"])
+    wb.save(file_path)
+
+    trigger = ExcelPollTrigger({"file": str(file_path), "state_file": str(state)})
+    assert trigger.poll() == []
+
+    wb = openpyxl.load_workbook(file_path)
+    wb.active.append([1, 2])
+    wb.save(file_path)
+
+    rows = trigger.poll()
+    assert rows == [{"id": "2", "values": [1, 2]}]
+    assert trigger.poll() == []
+
+
+def test_excel_poll_filter(monkeypatch, tmp_path):
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module("openpyxl")
+    ExcelPollTrigger = importlib.import_module(
+        "pyzap.plugins.excel_poll"
+    ).ExcelPollTrigger
+
+    file_path = tmp_path / "book.xlsx"
+    wb = openpyxl.Workbook()
+    wb.active.append(["h1", "h2"])
+    wb.active.append([1, "keep"])
+    wb.active.append([2, "skip"])
+    wb.save(file_path)
+
+    trigger = ExcelPollTrigger({"file": str(file_path), "filters": {2: "keep"}})
+    rows = trigger.poll()
+    assert rows == [{"id": "2", "values": [1, "keep"]}]
+
+
+def test_excel_poll_missing_dependency(monkeypatch):
+    import importlib
+    import builtins
+    monkeypatch.delitem(sys.modules, "openpyxl", raising=False)
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "openpyxl" or name.startswith("openpyxl."):
+            raise ImportError("No module named openpyxl")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    module = importlib.import_module("pyzap.plugins.excel_poll")
+    module = importlib.reload(module)
+    ExcelPollTrigger = module.ExcelPollTrigger
+
+    trigger = ExcelPollTrigger({"file": "book.xlsx"})
+    with pytest.raises(RuntimeError):
+        trigger.poll()
+
+
+def test_excel_attachments_trigger(monkeypatch, tmp_path):
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module("openpyxl")
+    ExcelAttachmentsTrigger = importlib.import_module(
+        "pyzap.plugins.excel_poll"
+    ).ExcelAttachmentsTrigger
+
+    file_path = tmp_path / "book.xlsx"
+    wb = openpyxl.Workbook()
+    wb.active.append(["file1.pdf,file2.pdf"])
+    wb.save(file_path)
+
+    trigger = ExcelAttachmentsTrigger({"file": str(file_path), "start_row": 1})
+    rows = trigger.poll()
+    assert rows[0]["attachments"] == ["file1.pdf", "file2.pdf"]
+
+
+def test_excel_cell_trigger(monkeypatch, tmp_path):
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module("openpyxl")
+    ExcelCellTrigger = importlib.import_module(
+        "pyzap.plugins.excel_poll"
+    ).ExcelCellTrigger
+
+    file_path = tmp_path / "book.xlsx"
+    state = tmp_path / "state.json"
+    wb = openpyxl.Workbook()
+    wb.active.append(["A", "B"])
+    wb.save(file_path)
+
+    trigger = ExcelCellTrigger({"file": str(file_path), "columns": [1], "state_file": str(state)})
+    assert trigger.poll() == []
+
+    wb = openpyxl.load_workbook(file_path)
+    wb.active.rows[0][0] = "C"
+    wb.save(file_path)
+
+    rows = trigger.poll()
+    assert rows[0]["changes"] == {"1": "C"}
+
+
+def test_excel_file_trigger(tmp_path):
+    from pyzap.plugins.excel_poll import ExcelFileTrigger
+
+    file_path = tmp_path / "book.xlsx"
+    file_path.write_text("x")
+
+    trigger = ExcelFileTrigger({"file": str(file_path)})
+    assert trigger.poll() == []
+
+    import time
+    time.sleep(0.01)
+    file_path.write_text("y")
+    os.utime(file_path, None)
+    rows = trigger.poll()
+    assert rows and rows[0]["file"] == str(file_path)

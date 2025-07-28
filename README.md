@@ -93,6 +93,25 @@ that can be appended to a spreadsheet:
 The resulting metadata dictionary can be passed to `sheets_append` or the new
 `excel_append` action which writes rows to a local `.xlsx` workbook.
 
+## Excel triggers and file actions
+
+PyZap includes lightweight triggers for monitoring Excel files:
+
+* `excel_poll` &ndash; detects newly added rows.
+* `excel_cell` &ndash; fires when selected columns change.
+* `excel_file` &ndash; fires when the workbook file is modified.
+* `excel_attachments` &ndash; like `excel_poll` but also parses a column
+  containing comma separated file references.
+
+A set of utility actions can then process the data:
+
+* `excel_upsert` &ndash; update an existing row or append a new one.
+* `file_create` &ndash; write payload data to a text, JSON or CSV file.
+* `file_download` and `file_rename` &ndash; download attachments and rename
+  them according to a template.
+* `email_send` &ndash; send a simple notification email via SMTP.
+* `sql_store` &ndash; store the payload as JSON in a SQLite database.
+
 ## Logging
 
 Runtime logs are written to `pyzap.log`. Use the `--log-level` option of

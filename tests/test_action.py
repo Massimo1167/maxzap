@@ -2,6 +2,7 @@ import json
 import urllib.request
 import sys
 import imaplib
+import smtplib
 from pathlib import Path
 import pytest
 
@@ -733,3 +734,87 @@ def test_excel_append_skip_duplicate(monkeypatch, tmp_path):
 
     wb2 = openpyxl.load_workbook(file_path)
     assert wb2.active.rows == [[1, 2]]
+
+
+def test_excel_upsert(monkeypatch, tmp_path):
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module('openpyxl')
+    ExcelUpsertAction = importlib.import_module('pyzap.plugins.excel_upsert').ExcelUpsertAction
+
+    file_path = tmp_path / 'book.xlsx'
+    wb = openpyxl.Workbook()
+    wb.active.append([1, 'a'])
+    wb.save(file_path)
+
+    action = ExcelUpsertAction({'file': str(file_path), 'key_col': 1})
+    action.execute({'values': [1, 'b']})
+
+    wb2 = openpyxl.load_workbook(file_path)
+    assert wb2.active.rows == [[1, 'b']]
+
+
+def test_file_create(tmp_path):
+    from pyzap.plugins.file_create import FileCreateAction
+
+    file_path = tmp_path / 'out.json'
+    action = FileCreateAction({'path': str(file_path), 'format': 'json'})
+    action.execute({'a': 1})
+    assert json.loads(file_path.read_text()) == {'a': 1}
+
+
+def test_download_and_rename(tmp_path):
+    from pyzap.plugins.file_download import DownloadFilesAction
+    from pyzap.plugins.file_rename import RenameFilesAction
+
+    src = tmp_path / 'f.txt'
+    src.write_text('hi')
+
+    download = DownloadFilesAction({'dest': str(tmp_path / 'dest')})
+    data = download.execute({'attachments': [str(src)]})
+    renamed = RenameFilesAction({'pattern': 'renamed{ext}'})
+    data = renamed.execute(data)
+    target = Path(data['files'][0])
+    assert target.read_text() == 'hi'
+    assert target.name == 'renamed.txt'
+
+
+def test_email_send(monkeypatch):
+    from pyzap.plugins.email_send import EmailSendAction
+
+    sent = {}
+
+    class DummySMTP:
+        def __init__(self, host, port):
+            sent['host'] = host
+            sent['port'] = port
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+        def send_message(self, msg):
+            sent['to'] = msg['To']
+            sent['subject'] = msg['Subject']
+
+    monkeypatch.setattr(smtplib, 'SMTP', DummySMTP)
+
+    action = EmailSendAction({'to': 'dest@example.com', 'subject': 'hi'})
+    action.execute({'body': 'x'})
+    assert sent['to'] == 'dest@example.com'
+
+
+def test_sql_store(tmp_path):
+    from pyzap.plugins.sql_store import SqlStoreAction
+    db = tmp_path / 'data.db'
+    action = SqlStoreAction({'db': str(db), 'table': 't'})
+    action.execute({'x': 1})
+
+    import sqlite3, json
+
+    conn = sqlite3.connect(db)
+    row = conn.execute('select data from t').fetchone()
+    conn.close()
+    assert json.loads(row[0]) == {'x': 1}
