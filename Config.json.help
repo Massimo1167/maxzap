@@ -74,3 +74,46 @@ Edit the `SCOPES` list in `get_gmail_token.py` if additional permissions are req
 (https://developers.google.com/identity/protocols/oauth2/scopes)
 (https://developers.google.com/workspace/drive/api/guides/api-specific-auth?hl=it)
 for reference.
+
+**************
+4) Trigger e azioni di excel_watch
+
+Il modulo pyzap/plugins/excel_watch.py contiene diversi trigger e azioni dedicate ai file Excel.
+
+ExcelRowAddedTrigger – rileva le nuove righe aggiunte al workbook
+Parametri rilevanti: file (obbligatorio), sheet, filters, start_row, state_file
+
+ExcelCellChangeTrigger – attiva quando le colonne monitorate cambiano valore
+Parametri: file, sheet, columns, start_row, state_file
+
+ExcelFileUpdatedTrigger – si attiva quando cambia la data di modifica del file
+Parametri: file (obbligatorio), state_file
+
+ExcelAttachmentRowTrigger – simile a excel_row_added, ma restituisce solo le righe in cui la colonna indicata contiene un allegato. Parametro aggiuntivo: attachment_column
+
+Azioni presenti nello stesso modulo:
+
+ExcelWriteRowAction – crea o aggiorna una riga
+Parametri: file (obbl.), sheet, row
+
+EmailSendAction – invia email via SMTP
+Parametri: host, port, username, password, from_addr, to_addr, subject, body
+
+DBSaveAction – salva i dati in un database SQLite
+Parametri: db (obbl.), table
+
+FileCreateAction – genera un file di testo/CSV/JSON a partire dai dati
+Parametri: path (obbl.), format (txt, json, csv)
+
+AttachmentDownloadAction – scarica file indicati nella riga
+Parametri: dest (obbl.), rename opzionale
+
+**************
+5) Azione pdf_split
+
+Il file pyzap/plugins/pdf_split.py definisce l’azione PDFSplitAction, che divide un PDF in più file.
+
+Parametri:
+output_dir (obbligatorio), pattern per determinare i punti di split, name_template (predefinito split_{index}.pdf), regex_fields per estrarre campi dal testo
+
+L’azione legge pdf_path dal payload e produce un elenco di file generati in data["files"]
