@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import email.utils
 from typing import Any, Dict, List
 
 
@@ -25,6 +26,13 @@ class ExcelAppendAction(BaseAction):
         file_path = self.params.get("file")
         sheet_name = self.params.get("sheet")
         fields: List[str] = self.params.get("fields", [])
+        max_message_length = self.params.get("max_message_length")
+        if max_message_length is not None:
+            try:
+                max_message_length = int(max_message_length)
+            except Exception:
+                max_message_length = None
+        message_fields = {"summary", "body", "message"}
         if not file_path:
             raise ValueError("file parameter required")
         wb = load_workbook(file_path)
@@ -42,6 +50,16 @@ class ExcelAppendAction(BaseAction):
         def _convert(value: Any, name: str) -> Any:
             if name == "storage_path" and not value:
                 return None
+            if isinstance(value, str) and name in message_fields and max_message_length:
+                value = value[:max_message_length]
+            if name == "datetime" and isinstance(value, str):
+                try:
+                    dt = email.utils.parsedate_to_datetime(value)
+                    value = dt.strftime("%d/%m/%Y %H:%M:%S")
+                except Exception:
+                    pass
+            if name == "attachments" and isinstance(value, (list, tuple)):
+                return "; ".join(str(v) for v in value)
             if isinstance(value, (list, tuple)):
                 return ", ".join(str(v) for v in value)
             if isinstance(value, dict):
