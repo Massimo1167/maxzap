@@ -95,7 +95,7 @@ metadata into spreadsheet appenders:
         "download_links": true
       }
     },
-    {"type": "excel_append", "params": {"file": "log.xlsx"}}
+    {"type": "excel_append", "params": {"file": "log.xlsm"}}
   ]
 }
 ```

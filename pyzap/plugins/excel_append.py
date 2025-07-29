@@ -35,7 +35,8 @@ class ExcelAppendAction(BaseAction):
         message_fields = {"summary", "body", "message"}
         if not file_path:
             raise ValueError("file parameter required")
-        wb = load_workbook(file_path)
+        keep_vba = str(file_path).lower().endswith(".xlsm")
+        wb = load_workbook(file_path, keep_vba=keep_vba)
         ws = wb[sheet_name] if sheet_name else wb.active
 
         if "values" in data:
