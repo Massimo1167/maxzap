@@ -116,7 +116,12 @@ Several additional triggers help monitor local Excel files:
   where a configured attachment column contains data. The list of attachments is
   provided in the payload.
 
+All Excel operations use a file-based lock (`<file>.lock`) to avoid
+concurrent access issues. The lock is held while workbooks are read or
+written.
+
 Related actions can modify Excel files or work with row data:
+
 
 * `excel_write_row` &ndash; create or update a row in a workbook.
 * `email_send` &ndash; send an email using SMTP.
