@@ -70,7 +70,7 @@ def _setup_openpyxl(monkeypatch):
         def __getitem__(self, name):
             return self.active
 
-    def load_workbook(path):
+    def load_workbook(path, *args, **kwargs):
         wb = Workbook()
         if os.path.exists(path):
             with open(path, 'r', encoding='utf-8') as fh:
@@ -787,6 +787,31 @@ def test_excel_append_message_truncate(monkeypatch, tmp_path):
     wb2 = openpyxl.load_workbook(file_path)
     row = [cell.value for cell in wb2.active[1]]
     assert row == ['Hello']
+
+
+def test_excel_append_macro(monkeypatch, tmp_path):
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module('openpyxl')
+
+    calls = {}
+    orig_load = openpyxl.load_workbook
+
+    def fake_load_workbook(path, *args, **kwargs):
+        calls['keep_vba'] = kwargs.get('keep_vba')
+        return orig_load(path, *args, **kwargs)
+
+    monkeypatch.setattr(openpyxl, 'load_workbook', fake_load_workbook)
+    ExcelAppendAction = importlib.import_module('pyzap.plugins.excel_append').ExcelAppendAction
+
+    file_path = tmp_path / 'book.xlsm'
+    wb = openpyxl.Workbook()
+    wb.save(file_path)
+
+    action = ExcelAppendAction({'file': str(file_path)})
+    action.execute({'a': 1})
+
+    assert calls.get('keep_vba') is True
 
 
 def _setup_pypdf(monkeypatch):
