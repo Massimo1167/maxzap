@@ -85,7 +85,8 @@ that can be appended to a spreadsheet:
   detected in both plain text and HTML `href` attributes and file names are
   derived from `Content-Disposition` headers when needed, and
   automatically fetch text parts delivered via `attachmentId`. Quoted replies
-  are stripped from the saved message.
+  are stripped from the saved message. When attachments are stored locally the
+  action also returns `attachment_paths` with their full paths.
 * `imap_archive` &ndash; similar functionality for standard IMAP servers. It
   requires `host`, `username` and `password` and the same destination options as
   `gmail_archive`.

@@ -31,7 +31,8 @@
         "download_links": true
       }
         },
-        {"type": "excel_append", "params": {"file": "../gmail/log.xlsx"}}
+        {"type": "excel_append", "params": {"file": "../gmail/log.xlsx"}},
+        {"type": "pdf_split", "params": {"output_dir": "../gmail/split"}}
       ]
     }
   ]
