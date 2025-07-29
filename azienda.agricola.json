@@ -1,0 +1,37 @@
+{
+  "admin_email": "${ADMIN_EMAIL}",
+  "_comment_smtp": "Configurazione per il server SMTP per l'invio di notifiche email.",
+  "smtp": {
+    "host": "${SMTP_HOST}",
+    "port": "${SMTP_PORT}",
+    "username": "${SMTP_USERNAME}",
+    "password": "${SMTP_PASSWORD}"
+  },
+  "workflows": [
+    {
+      "id": "sdi-zap",
+      "_comment_trigger": "Questo trigger controlla la casella Gmail a intervalli regolari.",
+      "trigger": {
+        "type": "gmail_poll",
+        "max_results": 50,
+        "interval": 60,
+		"accounts": [
+		  {"token_file": "token_aziendaagricolapezzuoli.json", "query": "from:notifiche@01s.eu label:inbox -is:starred"}
+		]
+      },
+      "actions": [
+        {
+          "type": "gmail_archive",
+          "params": {
+			"local_dir": "../gmail/archive",
+			"attachment_types": [".pdf"],
+			"save_message": true,
+			"save_attachments": true,
+			"download_links": true
+			}
+        },
+        {"type": "excel_append", "params": {"file": "../gmail/log.xlsm"}}
+      ]
+    }
+  ]
+}
