@@ -201,8 +201,7 @@ def setup_logging(log_file: str = "pyzap.log", *, log_level: int = logging.INFO)
 
 def to_snake_case(name: str) -> str:
     """Convert CamelCase string to snake_case."""
-    # Example: "GmailPoll" -> "gmail_poll"
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+    return re.sub(r'(?<!^)(?=[A-Z][a-z])', '_', name).lower()
 
 
 def load_plugins() -> None:
