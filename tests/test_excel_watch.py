@@ -41,7 +41,7 @@ def _setup_openpyxl(monkeypatch):
         def __getitem__(self, name):
             return self.active
 
-    def load_workbook(path):
+    def load_workbook(path, *args, **kwargs):
         wb = Workbook()
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as fh:
