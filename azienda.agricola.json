@@ -30,7 +30,14 @@
 			"download_links": true
 			}
         },
-        {"type": "excel_append", "params": {"file": "../gmail/log.xlsm"}}
+        {
+			"type": "excel_append", 
+			"params": {
+				"file": "../gmail/log.xlsm", 
+				"datetime": "DD/MM/YYYY HH:MM:SS",
+				"max_message_length": 255
+				}
+		}
       ]
     }
   ]
