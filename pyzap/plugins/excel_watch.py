@@ -9,6 +9,7 @@ import re
 from typing import Any, Dict, List
 
 from ..core import BaseTrigger, BaseAction
+from ..utils import excel_lock
 
 
 class ExcelRowAddedTrigger(BaseTrigger):
@@ -78,30 +79,31 @@ class ExcelRowAddedTrigger(BaseTrigger):
         if not file_path:
             raise ValueError("file parameter required")
 
-        wb = load_workbook(file_path)
-        ws = wb[sheet_name] if sheet_name else wb.active
+        with excel_lock(file_path):
+            wb = load_workbook(file_path, read_only=True)
+            ws = wb[sheet_name] if sheet_name else wb.active
 
-        max_row = getattr(ws, "max_row", None)
-        if max_row is None:
-            rows_attr = getattr(ws, "rows", [])
-            try:
-                max_row = len(list(rows_attr))
-            except TypeError:
-                max_row = len(rows_attr)
+            max_row = getattr(ws, "max_row", None)
+            if max_row is None:
+                rows_attr = getattr(ws, "rows", [])
+                try:
+                    max_row = len(list(rows_attr))
+                except TypeError:
+                    max_row = len(rows_attr)
 
-        results: List[Dict[str, Any]] = []
-        for row_idx in range(self.last_row + 1, max_row + 1):
-            cells = ws[row_idx]
-            values = [getattr(c, "value", None) for c in cells]
-            match = True
-            for col, expected in filters.items():
-                idx = int(col) - 1
-                val = values[idx] if idx < len(values) else None
-                if not self._match(val, expected):
-                    match = False
-                    break
-            if match:
-                results.append({"id": str(row_idx), "values": values})
+            results: List[Dict[str, Any]] = []
+            for row_idx in range(self.last_row + 1, max_row + 1):
+                cells = ws[row_idx]
+                values = [getattr(c, "value", None) for c in cells]
+                match = True
+                for col, expected in filters.items():
+                    idx = int(col) - 1
+                    val = values[idx] if idx < len(values) else None
+                    if not self._match(val, expected):
+                        match = False
+                        break
+                if match:
+                    results.append({"id": str(row_idx), "values": values})
 
         self.last_row = max_row
         self._save_state()
@@ -146,34 +148,35 @@ class ExcelCellChangeTrigger(BaseTrigger):
         if not file_path:
             raise ValueError("file parameter required")
 
-        wb = load_workbook(file_path)
-        ws = wb[sheet_name] if sheet_name else wb.active
+        with excel_lock(file_path):
+            wb = load_workbook(file_path, read_only=True)
+            ws = wb[sheet_name] if sheet_name else wb.active
 
-        max_row = getattr(ws, "max_row", None)
-        if max_row is None:
-            rows_attr = getattr(ws, "rows", [])
-            try:
-                max_row = len(list(rows_attr))
-            except TypeError:
-                max_row = len(rows_attr)
+            max_row = getattr(ws, "max_row", None)
+            if max_row is None:
+                rows_attr = getattr(ws, "rows", [])
+                try:
+                    max_row = len(list(rows_attr))
+                except TypeError:
+                    max_row = len(rows_attr)
 
-        changed: List[Dict[str, Any]] = []
-        for row_idx in range(self.start_row, max_row + 1):
-            cells = ws[row_idx]
-            values = [getattr(c, "value", None) for c in cells]
-            key = str(row_idx)
-            prev = self._state.get(key, {})
-            row_changed = False
-            new_cols: Dict[int, Any] = {}
-            for col in self.columns:
-                idx = col - 1
-                val = values[idx] if idx < len(values) else None
-                if key in self._state and prev.get(str(col)) != val:
-                    row_changed = True
-                new_cols[str(col)] = val
-            if row_changed:
-                changed.append({"id": key, "values": values})
-            self._state[key] = new_cols
+            changed: List[Dict[str, Any]] = []
+            for row_idx in range(self.start_row, max_row + 1):
+                cells = ws[row_idx]
+                values = [getattr(c, "value", None) for c in cells]
+                key = str(row_idx)
+                prev = self._state.get(key, {})
+                row_changed = False
+                new_cols: Dict[int, Any] = {}
+                for col in self.columns:
+                    idx = col - 1
+                    val = values[idx] if idx < len(values) else None
+                    if key in self._state and prev.get(str(col)) != val:
+                        row_changed = True
+                    new_cols[str(col)] = val
+                if row_changed:
+                    changed.append({"id": key, "values": values})
+                self._state[key] = new_cols
 
         self._save_state()
         return changed
@@ -254,15 +257,16 @@ class ExcelWriteRowAction(BaseAction):
         if not file_path:
             raise ValueError("file parameter required")
 
-        wb = load_workbook(file_path)
-        ws = wb[sheet_name] if sheet_name else wb.active
-        if row_idx:
-            row_idx = int(row_idx)
-            for col, val in enumerate(values, start=1):
-                ws.cell(row=row_idx, column=col, value=val)
-        else:
-            ws.append(values)
-        wb.save(file_path)
+        with excel_lock(file_path):
+            wb = load_workbook(file_path)
+            ws = wb[sheet_name] if sheet_name else wb.active
+            if row_idx:
+                row_idx = int(row_idx)
+                for col, val in enumerate(values, start=1):
+                    ws.cell(row=row_idx, column=col, value=val)
+            else:
+                ws.append(values)
+            wb.save(file_path)
 
 
 class EmailSendAction(BaseAction):
