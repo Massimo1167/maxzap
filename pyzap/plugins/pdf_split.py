@@ -19,6 +19,10 @@ class PDFSplitAction(BaseAction):
             ) from exc
 
         pdf_path = data.get("pdf_path")
+        if not pdf_path:
+            paths = data.get("attachment_paths")
+            if paths:
+                pdf_path = paths[0]
         output_dir = self.params.get("output_dir")
         pattern = self.params.get("pattern")
         name_template = self.params.get("name_template", "split_{index}.pdf")

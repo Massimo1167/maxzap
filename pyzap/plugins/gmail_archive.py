@@ -216,6 +216,8 @@ class GmailArchiveAction(BaseAction):
                 uploader.execute({"content": content, "filename": name})
             storage_path = folder_id
 
+        file_paths = [str(Path(storage_path) / name) for name, _ in files]
+
         return {
             "datetime": date,
             "sender": sender,
@@ -223,4 +225,5 @@ class GmailArchiveAction(BaseAction):
             "summary": snippet,
             "attachments": attachments,
             "storage_path": storage_path,
+            "attachment_paths": file_paths,
         }

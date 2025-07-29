@@ -95,10 +95,14 @@ metadata into spreadsheet appenders:
         "download_links": true
       }
     },
-    {"type": "excel_append", "params": {"file": "log.xlsm"}}
+    {"type": "excel_append", "params": {"file": "log.xlsm"}},
+    {"type": "pdf_split", "params": {"output_dir": "./split"}}
   ]
 }
 ```
+
+`pdf_split` will use the `attachment_paths` field from `gmail_archive` when
+`pdf_path` is not provided.
 
 The same concept works with `imap_archive` in place of `gmail_archive` and the
 `sheets_append` action for Google Sheets.
@@ -130,4 +134,5 @@ Related actions can modify Excel files or work with row data:
 * `attachment_download` &ndash; download files referenced in a row and optionally
   rename them based on placeholders.
 * `pdf_split` &ndash; split a PDF into separate files using a text pattern and
-  naming template.
+  naming template. If `pdf_path` is omitted it uses the first
+  `attachment_paths` entry from the previous action.

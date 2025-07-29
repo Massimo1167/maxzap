@@ -394,6 +394,7 @@ def test_gmail_archive(monkeypatch, tmp_path):
     assert folder.exists()
     assert (folder / 'a.txt').read_bytes() == b'file'
     assert result['sender'] == 'f'
+    assert result['attachment_paths'] == [str(folder / 'a.txt')]
 
 
 def test_gmail_archive_filtered(monkeypatch, tmp_path):
@@ -412,6 +413,7 @@ def test_gmail_archive_filtered(monkeypatch, tmp_path):
     folder = tmp_path / '123'
     assert not folder.exists()
     assert result['attachments'] == []
+    assert result['attachment_paths'] == []
     assert result['storage_path'] == ''
 
 
@@ -431,6 +433,7 @@ def test_gmail_archive_skip_attachments(monkeypatch, tmp_path):
     assert folder.exists()
     assert not (folder / 'a.txt').exists()
     assert result['attachments'] == []
+    assert result['attachment_paths'] == []
 
 
 def test_gmail_archive_links(monkeypatch, tmp_path):
@@ -466,6 +469,7 @@ def test_gmail_archive_links(monkeypatch, tmp_path):
     assert (folder / 'message.txt').read_text() == 'body http://example.com/file.pdf'
     assert (folder / 'file.pdf').read_bytes() == b'linked'
     assert 'file.pdf' in result['attachments']
+    assert result['attachment_paths'] == [str(folder / 'file.pdf')]
 
 
 def test_gmail_archive_links_no_attachments(monkeypatch, tmp_path):
@@ -498,6 +502,7 @@ def test_gmail_archive_links_no_attachments(monkeypatch, tmp_path):
     assert folder.exists()
     assert (folder / 'file.pdf').read_bytes() == b'linked'
     assert result['attachments'] == ['file.pdf']
+    assert result['attachment_paths'] == [str(folder / 'file.pdf')]
 
 
 def test_gmail_archive_token_from_message(monkeypatch, tmp_path):
@@ -512,6 +517,7 @@ def test_gmail_archive_token_from_message(monkeypatch, tmp_path):
     folder = tmp_path / '123'
     assert folder.exists()
     assert result['sender'] == 'f'
+    assert result['attachment_paths'] == [str(folder / 'a.txt')]
 
 
 def test_gmail_archive_html_link_header(monkeypatch, tmp_path):
