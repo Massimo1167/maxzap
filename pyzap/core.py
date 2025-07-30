@@ -68,11 +68,21 @@ class Workflow:
         logging.info(
             "Running workflow %s using %s", self.id, type(self.trigger).__name__
         )
+        logging.debug(
+            "Trigger %s input config: %s",
+            type(self.trigger).__name__,
+            self.trigger.config,
+        )
         if self.step_mode:
             input("Press Enter to poll trigger...")
 
         messages = self.trigger.poll()
         logging.info("Trigger returned %d messages", len(messages))
+        logging.debug(
+            "Trigger %s output payloads: %s",
+            type(self.trigger).__name__,
+            messages,
+        )
         if self.step_mode:
             input("Press Enter to process messages...")
         for payload in messages:
@@ -89,7 +99,17 @@ class Workflow:
                     from .formatter import normalize
 
                     normalized = normalize(current)
+                    logging.debug(
+                        "Action %s input payload: %s",
+                        type(action).__name__,
+                        normalized,
+                    )
                     result = action.execute(normalized)
+                    logging.debug(
+                        "Action %s output payload: %s",
+                        type(action).__name__,
+                        result,
+                    )
                     if isinstance(result, dict):
                         current = result
                 except Exception as exc:  # pylint: disable=broad-except
