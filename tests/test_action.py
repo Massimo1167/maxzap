@@ -820,7 +820,7 @@ def test_excel_append_macro(monkeypatch, tmp_path):
     assert calls.get('keep_vba') is True
 
 
-def _setup_pypdf(monkeypatch):
+def _setup_pypdf(monkeypatch, texts=None):
     import types, sys
 
     pypdf = types.ModuleType('PyPDF2')
@@ -834,7 +834,8 @@ def _setup_pypdf(monkeypatch):
 
     class Reader:
         def __init__(self, path):
-            self.pages = [Page('start invoice 1'), Page('start invoice 2')]
+            default_texts = ['start invoice 1', 'start invoice 2']
+            self.pages = [Page(t) for t in (texts or default_texts)]
 
     class Writer:
         def __init__(self):
@@ -890,3 +891,40 @@ def test_pdf_split_missing_fields(monkeypatch, tmp_path):
     assert len(files) == 2
     assert [f.name for f in files] == ['_1.pdf', '_2.pdf']
     assert result['files'] == [str(f) for f in files]
+
+
+def test_pdf_split_regex_fields(monkeypatch, tmp_path):
+    texts = [
+        'start Numero\n documento V2-\n250035405 Data\n documento 01/01/2023 Denominazione: ACME'
+    ]
+    _setup_pypdf(monkeypatch, texts=texts)
+    import importlib
+
+    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.reload(module)
+    action_cls = module.PDFSplitAction
+
+    src = tmp_path / 'src.pdf'
+    src.write_bytes(b'data')
+
+    out_dir = tmp_path / 'out'
+    regex_fields = {
+        'denominazione': r'Denominazione:\s*(.+)',
+        'numero_documento': r'Numero\s+documento\s*(\S+(?:\s*\n\s*\S+)*)',
+        'data_documento': r'Data\s+documento\s*(\d{2}/\d{2}/\d{4})',
+    }
+    action = action_cls(
+        {
+            'output_dir': str(out_dir),
+            'pattern': 'start',
+            'name_template': '{numero_documento}.pdf',
+            'regex_fields': regex_fields,
+        }
+    )
+    result = action.execute({'pdf_path': str(src)})
+
+    files = sorted(out_dir.glob('*.pdf'))
+    assert len(files) == 1
+    assert files[0].name == 'V2- 250035405.pdf'
+    assert result['records'][0]['numero_documento'] == 'V2- 250035405'
+    assert result['records'][0]['data_documento'] == '01/01/2023'
