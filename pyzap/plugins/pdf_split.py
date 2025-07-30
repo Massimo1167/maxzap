@@ -64,9 +64,12 @@ class PDFSplitAction(BaseAction):
 
             for key, regex in regex_fields.items():
                 if key not in fields:
-                    m = re.search(regex, text)
+                    m = re.search(regex, text, re.DOTALL)
                     if m:
-                        fields[key] = m.group(1) if m.groups() else m.group(0)
+                        value = m.group(1) if m.groups() else m.group(0)
+                        if isinstance(value, str):
+                            value = re.sub(r"\s+", " ", value.strip())
+                        fields[key] = value
 
         if writer and len(getattr(writer, "pages", [])) > 0:
             info = {**data, **fields, "index": index}
