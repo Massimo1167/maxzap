@@ -5,6 +5,19 @@ import re
 from typing import Any, Dict, List
 from collections import defaultdict
 
+
+_INVALID_CHARS = re.compile(r'[\\/*?:"<>|]')
+
+
+def _safe_filename(name: str, max_length: int = 100) -> str:
+    """Return a filesystem-safe version of ``name`` limited in length."""
+    name = re.sub(r"\s+", " ", name.strip())
+    name = _INVALID_CHARS.sub("_", name)
+    if len(name) > max_length:
+        base, ext = os.path.splitext(name)
+        name = base[: max_length - len(ext)] + ext
+    return name
+
 from ..core import BaseAction
 
 
@@ -48,7 +61,7 @@ class PDFSplitAction(BaseAction):
             text = page.extract_text() or ""
             if pattern and re.search(pattern, text) and writer:
                 info = {**data, **fields, "index": index}
-                filename = name_template.format_map(defaultdict(str, info))
+                filename = _safe_filename(name_template.format_map(defaultdict(str, info)))
                 path = os.path.join(output_dir, filename)
                 with open(path, "wb") as fh:
                     writer.write(fh)
@@ -73,7 +86,7 @@ class PDFSplitAction(BaseAction):
 
         if writer and len(getattr(writer, "pages", [])) > 0:
             info = {**data, **fields, "index": index}
-            filename = name_template.format_map(defaultdict(str, info))
+            filename = _safe_filename(name_template.format_map(defaultdict(str, info)))
             path = os.path.join(output_dir, filename)
             with open(path, "wb") as fh:
                 writer.write(fh)
