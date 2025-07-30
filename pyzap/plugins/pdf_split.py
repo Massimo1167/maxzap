@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 from typing import Any, Dict, List
+from collections import defaultdict
 
 from ..core import BaseAction
 
@@ -47,7 +48,7 @@ class PDFSplitAction(BaseAction):
             text = page.extract_text() or ""
             if pattern and re.search(pattern, text) and writer:
                 info = {**data, **fields, "index": index}
-                filename = name_template.format(**info)
+                filename = name_template.format_map(defaultdict(str, info))
                 path = os.path.join(output_dir, filename)
                 with open(path, "wb") as fh:
                     writer.write(fh)
@@ -67,9 +68,9 @@ class PDFSplitAction(BaseAction):
                     if m:
                         fields[key] = m.group(1) if m.groups() else m.group(0)
 
-        if writer and getattr(writer, "getNumPages", lambda: len(getattr(writer, "pages", [])))() > 0:
+        if writer and len(getattr(writer, "pages", [])) > 0:
             info = {**data, **fields, "index": index}
-            filename = name_template.format(**info)
+            filename = name_template.format_map(defaultdict(str, info))
             path = os.path.join(output_dir, filename)
             with open(path, "wb") as fh:
                 writer.write(fh)

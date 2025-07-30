@@ -846,9 +846,6 @@ def _setup_pypdf(monkeypatch):
         def write(self, fh):
             fh.write(b'pdf')
 
-        def getNumPages(self):
-            return len(self.pages)
-
     pypdf.PdfReader = Reader
     pypdf.PdfWriter = Writer
     monkeypatch.setitem(sys.modules, 'PyPDF2', pypdf)
@@ -871,4 +868,25 @@ def test_pdf_split(monkeypatch, tmp_path):
 
     files = sorted(out_dir.glob('*.pdf'))
     assert len(files) == 2
+    assert result['files'] == [str(f) for f in files]
+
+
+def test_pdf_split_missing_fields(monkeypatch, tmp_path):
+    _setup_pypdf(monkeypatch)
+    import importlib
+
+    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.reload(module)
+    action_cls = module.PDFSplitAction
+
+    src = tmp_path / 'src.pdf'
+    src.write_bytes(b'data')
+
+    out_dir = tmp_path / 'out'
+    action = action_cls({'output_dir': str(out_dir), 'pattern': 'start', 'name_template': '{missing}_{index}.pdf'})
+    result = action.execute({'pdf_path': str(src)})
+
+    files = sorted(out_dir.glob('*.pdf'))
+    assert len(files) == 2
+    assert [f.name for f in files] == ['_1.pdf', '_2.pdf']
     assert result['files'] == [str(f) for f in files]
