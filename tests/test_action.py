@@ -964,3 +964,28 @@ def test_pdf_split_sanitized_filename(monkeypatch, tmp_path):
     # filename should be truncated and invalid characters replaced
     assert len(fname) <= 100
     assert ':' not in fname and '|' not in fname and '<' not in fname
+
+
+def test_extract_table_row():
+    from pyzap.pdf_utils import extract_table_row
+
+    text = (
+        'Tipologia documento Art. 73 Numero documento Data documento Codice destinatario\n'
+        'TD01 fattura 32 23-07-2025 6RB0OU9'
+    )
+    columns = [
+        {'header': 'Tipologia documento', 'key': 'tipologia', 'tokens': 2},
+        {'header': 'Art. 73', 'key': 'art_73', 'tokens': 0},
+        {'header': 'Numero documento', 'key': 'numero'},
+        {'header': 'Data documento', 'key': 'data'},
+        {'header': 'Codice destinatario', 'key': 'dest'}
+    ]
+
+    result = extract_table_row(text, columns)
+    assert result == {
+        'tipologia': 'TD01 fattura',
+        'art_73': '',
+        'numero': '32',
+        'data': '23-07-2025',
+        'dest': '6RB0OU9'
+    }

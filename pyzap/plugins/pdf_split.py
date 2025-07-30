@@ -19,6 +19,7 @@ def _safe_filename(name: str, max_length: int = 100) -> str:
     return name
 
 from ..core import BaseAction
+from ..pdf_utils import extract_table_row
 
 
 class PDFSplitAction(BaseAction):
@@ -41,6 +42,7 @@ class PDFSplitAction(BaseAction):
         pattern = self.params.get("pattern")
         name_template = self.params.get("name_template", "split_{index}.pdf")
         regex_fields: Dict[str, str] = self.params.get("regex_fields", {})
+        table_fields = self.params.get("table_fields")
 
         if not pdf_path:
             raise ValueError("pdf_path parameter required")
@@ -82,6 +84,12 @@ class PDFSplitAction(BaseAction):
                         value = m.group(1) if m.groups() else m.group(0)
                         if isinstance(value, str):
                             value = re.sub(r"\s+", " ", value.strip())
+                        fields[key] = value
+
+            if table_fields:
+                table_data = extract_table_row(text, table_fields)
+                for key, value in table_data.items():
+                    if key not in fields:
                         fields[key] = value
 
         if writer and len(getattr(writer, "pages", [])) > 0:
