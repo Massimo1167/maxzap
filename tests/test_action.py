@@ -928,3 +928,39 @@ def test_pdf_split_regex_fields(monkeypatch, tmp_path):
     assert files[0].name == 'V2- 250035405.pdf'
     assert result['records'][0]['numero_documento'] == 'V2- 250035405'
     assert result['records'][0]['data_documento'] == '01/01/2023'
+
+
+def test_pdf_split_sanitized_filename(monkeypatch, tmp_path):
+    text = (
+        'start Nome file con caratteri :<>| e una lunghezza molto ' + 'x' * 150
+    )
+    _setup_pypdf(monkeypatch, texts=[text])
+    import importlib
+
+    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.reload(module)
+    action_cls = module.PDFSplitAction
+
+    src = tmp_path / 'src.pdf'
+    src.write_bytes(b'data')
+
+    out_dir = tmp_path / 'out'
+    regex_fields = {
+        'name': r'start\s*(.+)'
+    }
+    action = action_cls(
+        {
+            'output_dir': str(out_dir),
+            'pattern': 'start',
+            'name_template': '{name}.pdf',
+            'regex_fields': regex_fields,
+        }
+    )
+    result = action.execute({'pdf_path': str(src)})
+
+    files = sorted(out_dir.glob('*.pdf'))
+    assert len(files) == 1
+    fname = files[0].name
+    # filename should be truncated and invalid characters replaced
+    assert len(fname) <= 100
+    assert ':' not in fname and '|' not in fname and '<' not in fname
