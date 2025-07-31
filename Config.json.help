@@ -116,4 +116,151 @@ Il file pyzap/plugins/pdf_split.py definisce l’azione PDFSplitAction, che divi
 Parametri:
 output_dir (obbligatorio), pattern per determinare i punti di split, name_template (predefinito split_{index}.pdf), regex_fields per estrarre campi dal testo
 
+**************
+6) Elenco Azione pdf_split
+
 L’azione legge pdf_path dal payload e produce un elenco di file generati in data["files"]
+
+Trigger
+
+gmail_poll
+
+Parametri di configurazione: token_file, query, max_results (opzionale), accounts (lista di configurazioni per più caselle)
+
+Payload in uscita: per ogni messaggio Gmail vengono restituiti id, dati completi del messaggio e il campo aggiuntivo token_file
+
+imap_poll
+
+Parametri di configurazione: host, username, password, mailbox (default INBOX), search (default UNSEEN)
+
+Payload in uscita: lista di dizionari con id, subject, from, body
+
+excel_poll
+
+Parametri di configurazione: file (percorso workbook), sheet (opzionale), filters (opzionale), state_file, start_row
+
+Payload in uscita: righe nuove con id (numero riga) e values (lista valori)
+
+excel_row_added
+
+Parametri di configurazione: come excel_poll più filtri avanzati (regex, gt, gte, lt, lte)
+
+Payload in uscita: righe nuove con id e values
+
+excel_cell_change
+
+Parametri di configurazione: file, sheet, columns, state_file, start_row
+
+Payload in uscita: righe in cui le colonne monitorate cambiano, con id e values
+
+excel_file_updated
+
+Parametri di configurazione: file, state_file
+
+Payload in uscita: id con timestamp di modifica e file percorso del workbook
+
+excel_attachment_row
+
+Parametri di configurazione: come excel_row_added più attachment_column
+
+Payload in uscita: righe che contengono allegati con campi id, values e attachments
+
+Action
+
+gmail_archive
+
+Parametri: token_file, drive_folder_id o local_dir, token, save_message, save_attachments, download_links, attachment_types
+
+Payload in ingresso: richiede id del messaggio
+
+Payload in uscita: dizionario con datetime, sender, subject, summary, attachments, storage_path, attachment_paths
+
+imap_archive
+
+Parametri: host, username, password, mailbox, drive_folder_id o local_dir, token, save_attachments
+
+Payload in ingresso: richiede id del messaggio
+
+Payload in uscita: datetime, sender, subject, summary, attachments, storage_path
+
+excel_append
+
+Parametri: file, sheet, fields (opzionale), max_message_length (opzionale)
+
+Payload in ingresso: può contenere values oppure i campi indicati in fields
+
+Nessun payload di ritorno (scrive sul file Excel).
+
+excel_write_row
+
+Parametri: file, sheet (opzionale), row (opzionale)
+
+Payload in ingresso: utilizza values oppure tutti i valori del dizionario passato.
+
+Nessun payload di ritorno.
+
+email_send
+
+Parametri: host, port, username, password, from_addr, to_addr, subject, body
+
+Payload in ingresso: se assenti in params, può usare to, subject o body dal payload
+
+Nessun payload di ritorno.
+
+db_save
+
+Parametri: db, table (default data)
+
+Payload in ingresso: qualsiasi dizionario; i campi diventano colonne della tabella.
+
+Nessun payload di ritorno.
+
+file_create
+
+Parametri: path, format (txt, json, csv)
+
+Payload in ingresso: dati da scrivere nel file.
+
+Nessun payload di ritorno.
+
+attachment_download
+
+Parametri: dest, rename (opzionale)
+
+Payload in ingresso: deve contenere attachments (lista di URL o percorsi)
+
+Payload in uscita: stesso payload con campo aggiuntivo downloaded (percorsi dei file)
+
+gdrive_upload
+
+Parametri: folder_id, token (opzionale, altrimenti da env GDRIVE_TOKEN)
+
+Payload in ingresso: file_path o content, opzionalmente filename
+
+Nessun payload di ritorno.
+
+pdf_split
+
+Parametri: output_dir, pattern, name_template, regex_fields, table_fields
+
+Payload in ingresso: richiede pdf_path (o attachment_paths)
+
+Payload in uscita: files (elenchi di PDF creati) e, se presenti, records con i dati estratti
+
+sheets_append
+
+Parametri: sheet_id, range, token, fields (opzionale)
+
+Payload in ingresso: deve fornire values oppure i campi indicati in fields
+
+Nessun payload di ritorno.
+
+slack_notify
+
+Parametri: webhook_url
+
+Payload in ingresso: text o message con il contenuto della notifica.
+
+Nessun payload di ritorno.
+
+Questi sono tutti i trigger e le action presenti nel progetto, con i rispettivi parametri e la struttura dei dati che producono o consumano.
