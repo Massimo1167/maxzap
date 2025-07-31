@@ -9,8 +9,9 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
 
     ``columns`` may be an iterable of strings or dictionaries with keys:
     ``header`` (header text), ``key`` (output key) and optional ``tokens`` to
-    specify how many tokens to assign to the column. The last column always
-    receives any remaining tokens.
+    specify how many tokens to assign to the column. Columns can also specify
+    ``until_regex`` to capture tokens until a matching pattern is encountered.
+    The last column always receives any remaining tokens.
     """
 
     tokens = re.findall(r"\S+", text.replace("\r", " "))
@@ -20,12 +21,13 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
     specs: List[Dict[str, Any]] = []
     for col in columns:
         if isinstance(col, str):
-            specs.append({"header": col, "key": col, "tokens": None})
+            specs.append({"header": col, "key": col, "tokens": None, "until_regex": None})
         else:
             specs.append({
                 "header": col.get("header") or col.get("name"),
                 "key": col.get("key") or col.get("name"),
                 "tokens": col.get("tokens"),
+                "until_regex": col.get("until_regex"),
             })
 
     headers = [s["header"] for s in specs]
@@ -54,10 +56,17 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
             value = " ".join(value_tokens[idx:])
             idx = len(value_tokens)
         else:
-            tokens = spec["tokens"] if spec["tokens"] is not None else 1
-            tokens = max(0, min(tokens, remaining))
-            value = " ".join(value_tokens[idx : idx + tokens])
-            idx += tokens
+            if spec.get("until_regex"):
+                pattern = re.compile(spec["until_regex"])
+                start = idx
+                while idx < len(value_tokens) and not pattern.match(value_tokens[idx]):
+                    idx += 1
+                value = " ".join(value_tokens[start:idx])
+            else:
+                tokens = spec["tokens"] if spec["tokens"] is not None else 1
+                tokens = max(0, min(tokens, remaining))
+                value = " ".join(value_tokens[idx : idx + tokens])
+                idx += tokens
         result[spec["key"]] = value.replace("\n", " ")
 
     return result
@@ -121,7 +130,11 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
     columns = [
         {"header": "Tipologia documento", "key": "tipo", "tokens": 2},
         {"header": "Art. 73", "key": "art_73", "tokens": 0},
-        {"header": "Numero documento", "key": "numero"},
+        {
+            "header": "Numero documento",
+            "key": "numero",
+            "until_regex": r"\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4}|\d{2}/\d{2}/\d{4}",
+        },
         {"header": "Data documento", "key": "data"},
         {"header": "Codice destinatario", "key": "codice_destinatario", "tokens": 1},
     ]
@@ -142,9 +155,9 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                     if len(tokens) - len(header_tokens) < len(columns):
                         continue
                     doc_row = extract_table_row(snippet, columns)
-                    if doc_row and any(doc_row.values()):
+                    if doc_row and doc_row.get("codice_destinatario"):
                         break
-            if doc_row:
+            if doc_row and doc_row.get("codice_destinatario"):
                 break
     if doc_row:
         data["documento"] = {
