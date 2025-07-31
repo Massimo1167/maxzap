@@ -45,7 +45,8 @@
             "pattern": "Cedente/prestatore \\(fornitore\\)",
             "name_template": "{data_documento} Fattura {numero_documento} {denominazione}.pdf",
             "regex_fields": {
-              "denominazione": "Denominazione:\\s*(.+)"
+			  "_comment_0": "Limita la ricerca al primo nl e limita il numero massimo di parole a 3",
+              "denominazione": "Denominazione:\\s*((?:\\S+\\s+){0,2}\\S+)"
             },
 			"table_fields": [
 			  {"header": "Tipologia documento", "key": "tipologia", "tokens": 2},
