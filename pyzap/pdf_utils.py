@@ -53,8 +53,19 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
         if remaining <= 0:
             value = ""
         elif j == len(specs) - 1:
-            value = " ".join(value_tokens[idx:])
-            idx = len(value_tokens)
+            if spec.get("until_regex"):
+                pattern = re.compile(spec["until_regex"])
+                start = idx
+                while idx < len(value_tokens) and not pattern.match(value_tokens[idx]):
+                    idx += 1
+                value = " ".join(value_tokens[start:idx])
+            elif spec.get("tokens") is not None:
+                tokens = max(0, min(spec["tokens"], remaining))
+                value = " ".join(value_tokens[idx : idx + tokens])
+                idx += tokens
+            else:
+                value = " ".join(value_tokens[idx:])
+                idx = len(value_tokens)
         else:
             if spec.get("until_regex"):
                 pattern = re.compile(spec["until_regex"])
@@ -151,6 +162,18 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                 snippet_lines.append(lines[idx + off])
                 if off >= 4:
                     snippet = " ".join(snippet_lines)
+                    # Some PDFs place another header (like "Totale documento") on the
+                    # same line as "Codice destinatario".  This breaks the normal
+                    # table extraction because extra tokens appear between the
+                    # headers and the actual row values.  Remove anything between
+                    # "Codice destinatario" and the first "TDxx" token which
+                    # typically starts the values.
+                    snippet = re.sub(
+                        r"(Codice destinatario)\s+.*?(TD\d{2})",
+                        r"\1 \2",
+                        snippet,
+                        flags=re.IGNORECASE,
+                    )
                     tokens = re.findall(r"\S+", snippet)
                     if len(tokens) - len(header_tokens) < len(columns):
                         continue
