@@ -1,0 +1,17 @@
+{
+  "workflows": [
+    {
+      "id": "invoice-split",
+      "trigger": {"type": "gmail_poll", "query": "label:invoices", "token_file": "token.json"},
+      "actions": [
+        {"type": "gmail_archive", "params": {"local_dir": "./archive", "attachment_types": [".pdf"]}},
+        {"type": "pdf_split", "params": {
+          "output_dir": "./split",
+          "pattern": "Cedente/prestatore",
+          "parse_invoice": true,
+          "name_template": "{documento_numero}_{cliente_denominazione}.pdf"
+        }}
+      ]
+    }
+  ]
+}

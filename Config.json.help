@@ -114,7 +114,7 @@ Parametri: dest (obbl.), rename opzionale
 Il file pyzap/plugins/pdf_split.py definisce l’azione PDFSplitAction, che divide un PDF in più file.
 
 Parametri:
-output_dir (obbligatorio), pattern per determinare i punti di split, name_template (predefinito split_{index}.pdf), regex_fields per estrarre campi dal testo
+output_dir (obbligatorio), pattern per determinare i punti di split, name_template (predefinito split_{index}.pdf), regex_fields per estrarre campi dal testo, parse_invoice (opzionale)
 
 **************
 6) Elenco Azione pdf_split
@@ -285,3 +285,4 @@ evitare di definire le stesse chiavi in regex_fields oppure rinominarle.
   ]
 }
 In questo modo i campi numero_documento e data_documento verranno presi dalla tabella del PDF e potranno essere utilizzati nel name_template per costruire correttamente il nome del file.
+Se il parametro parse_invoice è impostato a true il testo di ogni PDF viene analizzato con parse_invoice_text. Le chiavi annidate del risultato vengono appiattite con l'underscore (es. documento_numero) e rese disponibili nel name_template.
