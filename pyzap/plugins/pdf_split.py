@@ -19,11 +19,16 @@ def _safe_filename(name: str, max_length: int = 100) -> str:
     return name
 
 from ..core import BaseAction
-from ..pdf_utils import extract_table_row
+from ..pdf_utils import extract_table_row, parse_invoice_text
 
 
 class PDFSplitAction(BaseAction):
-    """Split a PDF file into smaller PDFs."""
+    """Split a PDF file into smaller PDFs.
+
+    If ``parse_invoice`` is true, :func:`parse_invoice_text` is used to
+    extract fields which can be referenced in ``name_template``.
+    Keys are flattened using underscores, e.g. ``documento_numero``.
+    """
 
     def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
         try:
@@ -43,6 +48,7 @@ class PDFSplitAction(BaseAction):
         name_template = self.params.get("name_template", "split_{index}.pdf")
         regex_fields: Dict[str, str] = self.params.get("regex_fields", {})
         table_fields = self.params.get("table_fields")
+        parse_invoice = self.params.get("parse_invoice")
 
         if not pdf_path:
             raise ValueError("pdf_path parameter required")
@@ -89,6 +95,24 @@ class PDFSplitAction(BaseAction):
             if table_fields:
                 table_data = extract_table_row(text, table_fields)
                 for key, value in table_data.items():
+                    if key not in fields:
+                        fields[key] = value
+
+            if parse_invoice:
+                inv = parse_invoice_text(text)
+
+                def _flatten(prefix: str, value: Any, out: Dict[str, Any]) -> None:
+                    if isinstance(value, dict):
+                        for k, v in value.items():
+                            _flatten(f"{prefix}_{k}" if prefix else k, v, out)
+                    elif isinstance(value, list):
+                        out[prefix] = str(value)
+                    else:
+                        out[prefix] = value
+
+                flat: Dict[str, Any] = {}
+                _flatten("", inv, flat)
+                for key, value in flat.items():
                     if key not in fields:
                         fields[key] = value
 

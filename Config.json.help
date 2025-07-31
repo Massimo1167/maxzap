@@ -191,6 +191,16 @@ Payload in ingresso: può contenere values oppure i campi indicati in fields
 
 Nessun payload di ritorno (scrive sul file Excel).
 
+invoice_excel_append
+
+Parametri: file, sheet, fields (opzionale)
+
+Payload in ingresso: richiede ``text`` o ``pdf_path`` da cui estrarre i campi con
+``parse_invoice_text``. I campi indicati in ``fields`` vengono aggiunti come
+nuova riga del foglio.
+
+Nessun payload di ritorno.
+
 excel_write_row
 
 Parametri: file, sheet (opzionale), row (opzionale)
@@ -241,11 +251,15 @@ Nessun payload di ritorno.
 
 pdf_split
 
-Parametri: output_dir, pattern, name_template, regex_fields, table_fields
+Parametri: output_dir, pattern, name_template, regex_fields, table_fields, parse_invoice
 
 Payload in ingresso: richiede pdf_path (o attachment_paths)
 
 Payload in uscita: files (elenchi di PDF creati) e, se presenti, records con i dati estratti
+
+Se ``parse_invoice`` è impostato a true, il testo di ogni pagina viene analizzato
+con ``parse_invoice_text`` e i campi estratti vengono aggiunti al dizionario
+``fields`` con nomi concatenati da underscore (es. ``documento_numero``).
 
 sheets_append
 

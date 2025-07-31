@@ -820,6 +820,35 @@ def test_excel_append_macro(monkeypatch, tmp_path):
     assert calls.get('keep_vba') is True
 
 
+def test_invoice_excel_append(monkeypatch, tmp_path):
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module('openpyxl')
+    from pyzap.plugins.invoice_excel_append import InvoiceExcelAppendAction
+
+    file_path = tmp_path / 'book.xlsx'
+    openpyxl.Workbook().save(file_path)
+
+    text = (
+        'Cedente/prestatore (fornitore)\n'
+        'Denominazione: Fornitore SRL\n'
+        'Cessionario/committente (cliente)\n'
+        'Denominazione: Cliente SPA\n'
+        'Indirizzo: Via Cliente 1\n'
+        'Tipologia documento Fattura\n'
+        'Art. 73\n'
+        'Numero documento 456\n'
+        'Data documento 2025-07-01\n'
+    )
+
+    action = InvoiceExcelAppendAction({'file': str(file_path), 'fields': ['documento_numero', 'cliente_denominazione']})
+    action.execute({'text': text})
+
+    wb = openpyxl.load_workbook(file_path)
+    row = [cell.value for cell in wb.active[1]]
+    assert row == ['456', 'Cliente SPA']
+
+
 def _setup_pypdf(monkeypatch, texts=None):
     import types, sys
 
@@ -966,6 +995,42 @@ def test_pdf_split_sanitized_filename(monkeypatch, tmp_path):
     assert ':' not in fname and '|' not in fname and '<' not in fname
 
 
+def test_pdf_split_parse_invoice(monkeypatch, tmp_path):
+    text = (
+        'start Cedente/prestatore (fornitore)\n'
+        'Denominazione: Fornitore SRL\n'
+        'Cessionario/committente (cliente)\n'
+        'Denominazione: Cliente SPA\n'
+        'Numero documento 456\n'
+        'Data documento 2025-07-01\n'
+    )
+    _setup_pypdf(monkeypatch, texts=[text])
+    import importlib
+
+    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.reload(module)
+    action_cls = module.PDFSplitAction
+
+    src = tmp_path / 'src.pdf'
+    src.write_bytes(b'data')
+
+    out_dir = tmp_path / 'out'
+    action = action_cls(
+        {
+            'output_dir': str(out_dir),
+            'pattern': 'start',
+            'name_template': '{documento_numero}.pdf',
+            'parse_invoice': True,
+        }
+    )
+    result = action.execute({'pdf_path': str(src)})
+
+    files = sorted(out_dir.glob('*.pdf'))
+    assert len(files) == 1
+    assert files[0].name == '456.pdf'
+    assert result['records'][0]['documento_numero'] == '456'
+
+
 def test_extract_table_row():
     from pyzap.pdf_utils import extract_table_row
 
@@ -1017,3 +1082,41 @@ def test_extract_table_row_split_lines():
         'data': '23-07-2025',
         'dest': '6RB0OU9'
     }
+
+
+def test_parse_invoice_text():
+    from pyzap.pdf_utils import parse_invoice_text
+
+    text = (
+        'Cedente/prestatore (fornitore)\n'
+        'IVA: 12345678901\n'
+        'Codice fiscale: FORNITORECF\n'
+        'Denominazione: Fornitore SRL\n'
+        'Indirizzo: Via Fornitore 1\n'
+        'Telefono: 0123456789\n'
+        'Cessionario/committente (cliente)\n'
+        'IVA: 98765432109\n'
+        'Codice fiscale: CLIENTECF\n'
+        'Denominazione: Cliente SPA\n'
+        'Indirizzo: Via Cliente 2\n'
+        'Tipologia documento Fattura\n'
+        'Art. 73\n'
+        'Numero documento 123\n'
+        'Data documento 2025-07-23\n'
+        'Prezzo totale\n'
+        'Prodotto 1 8,58 412,46 TN 4,00 3.538,91\n'
+        'RIEPILOGHI IVA E TOTALI\n'
+        'Totale imponibile 100,00\n'
+        'Totale imposta 22,00\n'
+        'Totale documento 122,00\n'
+        'Data scadenza 2025-08-23 122,00\n'
+        'MP01 Bonifico\n'
+    )
+
+    data = parse_invoice_text(text)
+
+    assert data['fornitore']['p_iva'] == '12345678901'
+    assert data['cliente']['denominazione'] == 'Cliente SPA'
+    assert data['documento']['numero'] == '123'
+    assert data['righe_dettaglio'][0]['iva_percentuale'] == 4.0
+    assert data['pagamento']['modalita'] == 'Bonifico'
