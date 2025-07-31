@@ -13,7 +13,7 @@
       "_comment_trigger": "Questo trigger controlla la casella Gmail a intervalli regolari.",
       "trigger": {
         "type": "gmail_poll",
-        "max_results": 50,
+        "max_results": 10,
         "interval": 60,
 		"accounts": [
 		  {"token_file": "token_aziendaagricolapezzuoli.json", "query": "from:notifiche@01s.eu label:inbox -is:starred"}
@@ -46,12 +46,12 @@
             "name_template": "{data_documento} Fattura {numero_documento} {denominazione}.pdf",
             "regex_fields": {
 			  "_comment_0": "Limita la ricerca al primo nl e limita il numero massimo di parole a 3",
-              "denominazione": "Denominazione:\\s*((?:\\S+\\s+){0,2}\\S+)"
+              "denominazione": "Denominazione:\\s*((?:\\S+\\s+){0,1}\\S+)"
             },
 			"table_fields": [
 			  {"header": "Tipologia documento", "key": "tipologia", "tokens": 2},
 			  {"header": "Art. 73", "key": "art_73", "tokens": 0},
-			  {"header": "Numero documento", "key": "numero_documento"},
+			  {"header": "Numero documento", "key": "numero_documento", "tokens": 2},
 			  {"header": "Data documento", "key": "data_documento"},
 			  {"header": "Codice destinatario", "key": "dest"}
 			]
