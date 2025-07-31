@@ -66,8 +66,11 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
 def parse_invoice_text(text: str) -> Dict[str, Any]:
     """Extract fields from Italian electronic invoice OCR ``text``.
 
-    The parser is intentionally loose and works with common layout
-    variations. Returned data is organised in sections such as
+    The original implementation relied on very strict regular
+    expressions which often failed with noisy OCR output.  The parser
+    now normalises whitespace and searches the relevant blocks using
+    case-insensitive patterns making it much more tolerant of layout
+    variations.  Returned data is organised in sections such as
     ``fornitore`` (seller), ``cliente`` (buyer), ``documento`` and so on.
     Missing values are returned as ``None``.
     """
@@ -80,68 +83,53 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
         except (ValueError, AttributeError):
             return value
 
+    clean_text = text.replace("\r", "")
+    lines = [re.sub(r"\s+", " ", ln.strip()) for ln in clean_text.splitlines()]
+    normalised = "\n".join(lines)
+
+    def _extract(pattern: str, src: str = normalised) -> str | None:
+        m = re.search(pattern, src, re.IGNORECASE | re.MULTILINE)
+        if not m:
+            return None
+        return " ".join(m.group(1).split()).strip()
+
+    def _block(start: str, end: str) -> str | None:
+        m = re.search(start + r"(.*?)" + end, normalised, re.IGNORECASE | re.DOTALL)
+        return m.group(1) if m else None
+
     data: Dict[str, Any] = {}
 
-    seller_block = re.search(
-        r"Cedente/prestatore \(fornitore\)(.*?)Cessionario/committente",
-        text,
-        re.DOTALL,
-    )
-    if seller_block:
-        s = seller_block.group(1)
+    seller_chunk = _block(r"Cedente/prestatore\s*\(fornitore\)", r"Cessionario/committente")
+    if seller_chunk:
         data["fornitore"] = {
-            "p_iva": re.search(r"IVA:\s*(\S+)", s).group(1)
-            if re.search(r"IVA:\s*(\S+)", s)
-            else None,
-            "codice_fiscale": re.search(r"Codice fiscale:\s*(\S+)", s).group(1)
-            if re.search(r"Codice fiscale:\s*(\S+)", s)
-            else None,
-            "denominazione": re.search(r"Denominazione:\s*(.*?)\n", s, re.DOTALL).group(1).strip()
-            if re.search(r"Denominazione:\s*(.*?)\n", s, re.DOTALL)
-            else None,
-            "indirizzo": re.search(r"Indirizzo:\s*(.*?)\n", s, re.DOTALL).group(1).strip()
-            if re.search(r"Indirizzo:\s*(.*?)\n", s, re.DOTALL)
-            else None,
-            "telefono": re.search(r"Telefono:\s*(\S+)", s).group(1)
-            if re.search(r"Telefono:\s*(\S+)", s)
-            else None,
+            "p_iva": _extract(r"IVA\s*[:\-]?\s*(\S+)", seller_chunk),
+            "codice_fiscale": _extract(r"Codice fiscale\s*[:\-]?\s*(\S+)", seller_chunk),
+            "denominazione": _extract(r"Denominazione\s*[:\-]?\s*(.*?)(?:\n|$)", seller_chunk),
+            "indirizzo": _extract(r"Indirizzo\s*[:\-]?\s*(.*?)(?:\n|$)", seller_chunk),
+            "telefono": _extract(r"Telefono\s*[:\-]?\s*(\S+)", seller_chunk),
         }
 
-    client_block = re.search(
-        r"Cessionario/committente \(cliente\)(.*?)Tipologia documento",
-        text,
-        re.DOTALL,
-    )
-    if client_block:
-        c = client_block.group(1)
-        denom = re.search(r"Denominazione:(.*?)Indirizzo:", c, re.DOTALL)
+    client_chunk = _block(r"Cessionario/committente\s*\(cliente\)", r"Tipologia documento")
+    if client_chunk:
         data["cliente"] = {
-            "p_iva": re.search(r"IVA:\s*(\S+)", c).group(1)
-            if re.search(r"IVA:\s*(\S+)", c)
-            else None,
-            "codice_fiscale": re.search(r"Codice fiscale:\s*(\S+)", c).group(1)
-            if re.search(r"Codice fiscale:\s*(\S+)", c)
-            else None,
-            "denominazione": " ".join(denom.group(1).split()).strip() if denom else None,
-            "indirizzo": re.search(r"Indirizzo:\s*(.*?)\n", c, re.DOTALL).group(1).strip()
-            if re.search(r"Indirizzo:\s*(.*?)\n", c, re.DOTALL)
-            else None,
+            "p_iva": _extract(r"IVA\s*[:\-]?\s*(\S+)", client_chunk),
+            "codice_fiscale": _extract(r"Codice fiscale\s*[:\-]?\s*(\S+)", client_chunk),
+            "denominazione": _extract(r"Denominazione\s*[:\-]?\s*(.*?)(?:Indirizzo|\n|$)", client_chunk),
+            "indirizzo": _extract(r"Indirizzo\s*[:\-]?\s*(.*?)(?:\n|$)", client_chunk),
         }
 
-    tipo_doc = re.search(r"Tipologia documento(.*?)Art. 73", text, re.DOTALL)
-    num_doc = re.search(r"Numero\s*documento(.*?)Data\s*documento", text, re.DOTALL)
+    tipo_doc = re.search(r"Tipologia documento\s*(.*?)\n", normalised, re.IGNORECASE)
+    num_doc = re.search(r"Numero\s*documento\s*(.*?)\n", normalised, re.IGNORECASE)
     data["documento"] = {
         "tipo": " ".join(tipo_doc.group(1).split()).strip() if tipo_doc else None,
         "numero": " ".join(num_doc.group(1).split()).strip() if num_doc else None,
-        "data": re.search(r"Data\s*documento\s*(\S+)", text).group(1).strip()
-        if re.search(r"Data\s*documento\s*(\S+)", text)
-        else None,
+        "data": _extract(r"Data\s*documento\s*(\S+)")
     }
 
     data["righe_dettaglio"] = []
     rows_block = re.search(
         r"Prezzo totale\n(.*?)RIEPILOGHI IVA E TOTALI",
-        text,
+        normalised,
         re.DOTALL,
     )
     if rows_block:
@@ -169,27 +157,25 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
 
     data["riepilogo_importi"] = {
         "imponibile": _parse_number(
-            re.search(r"Totale imponibile\s+([\d\.,]+)", text).group(1)
-            if re.search(r"Totale imponibile\s+([\d\.,]+)", text)
+            re.search(r"Totale imponibile\s+([\d\.,]+)", normalised).group(1)
+            if re.search(r"Totale imponibile\s+([\d\.,]+)", normalised)
             else None
         ),
         "imposta": _parse_number(
-            re.search(r"Totale imposta\s+([\d\.,]+)", text).group(1)
-            if re.search(r"Totale imposta\s+([\d\.,]+)", text)
+            re.search(r"Totale imposta\s+([\d\.,]+)", normalised).group(1)
+            if re.search(r"Totale imposta\s+([\d\.,]+)", normalised)
             else None
         ),
         "totale": _parse_number(
-            re.search(r"Totale documento\s+([\d\.,]+)", text).group(1)
-            if re.search(r"Totale documento\s+([\d\.,]+)", text)
+            re.search(r"Totale documento\s+([\d\.,]+)", normalised).group(1)
+            if re.search(r"Totale documento\s+([\d\.,]+)", normalised)
             else None
         ),
     }
 
-    pay_match = re.search(r"Data scadenza\s+([\d-]+)\s+([\d\.,]+)", text)
+    pay_match = re.search(r"Data scadenza\s+([\d-]+)\s+([\d\.,]+)", normalised)
     data["pagamento"] = {
-        "modalita": re.search(r"MP\d{2}\s+(\w+)", text).group(1).strip()
-        if re.search(r"MP\d{2}\s+(\w+)", text)
-        else None,
+        "modalita": _extract(r"MP\d{2}\s+(\w+)"),
         "scadenza": pay_match.group(1) if pay_match else None,
         "importo": _parse_number(pay_match.group(2)) if pay_match else None,
     }
