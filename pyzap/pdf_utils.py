@@ -118,13 +118,36 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
             "indirizzo": _extract(r"Indirizzo\s*[:\-]?\s*(.*?)(?:\n|$)", client_chunk),
         }
 
-    tipo_doc = re.search(r"Tipologia documento\s*(.*?)\n", normalised, re.IGNORECASE)
-    num_doc = re.search(r"Numero\s*documento\s*(.*?)\n", normalised, re.IGNORECASE)
-    data["documento"] = {
-        "tipo": " ".join(tipo_doc.group(1).split()).strip() if tipo_doc else None,
-        "numero": " ".join(num_doc.group(1).split()).strip() if num_doc else None,
-        "data": _extract(r"Data\s*documento\s*(\S+)")
-    }
+    columns = [
+        {"header": "Tipologia documento", "key": "tipo", "tokens": 2},
+        {"header": "Art. 73", "key": "art_73", "tokens": 0},
+        {"header": "Numero documento", "key": "numero"},
+        {"header": "Data documento", "key": "data"},
+        {"header": "Codice destinatario", "key": "codice_destinatario"},
+    ]
+    doc_row = {}
+    for idx, line in enumerate(lines):
+        if "Tipologia documento" in line:
+            snippet = " ".join(lines[idx: idx + 5])
+            doc_row = extract_table_row(snippet, columns)
+            if doc_row:
+                break
+    if doc_row:
+        data["documento"] = {
+            "tipo": doc_row.get("tipo"),
+            "numero": doc_row.get("numero"),
+            "data": doc_row.get("data"),
+            "codice_destinatario": doc_row.get("codice_destinatario"),
+            "art_73": doc_row.get("art_73"),
+        }
+    else:
+        tipo_doc = re.search(r"Tipologia documento\s*(.*?)\n", normalised, re.IGNORECASE)
+        num_doc = re.search(r"Numero\s*documento\s*(.*?)\n", normalised, re.IGNORECASE)
+        data["documento"] = {
+            "tipo": " ".join(tipo_doc.group(1).split()).strip() if tipo_doc else None,
+            "numero": " ".join(num_doc.group(1).split()).strip() if num_doc else None,
+            "data": _extract(r"Data\s*documento\s*(\S+)")
+        }
 
     data["righe_dettaglio"] = []
     rows_block = re.search(
