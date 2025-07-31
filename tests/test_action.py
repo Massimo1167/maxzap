@@ -1068,7 +1068,8 @@ def test_parse_invoice_text_table_header():
         'Tipologia documento Art.\n'
         '73 Numero documento Data documento Codice\n'
         'destinatario\n'
-        'TD01 fattura 32 23-07-2025\n'
+        'TD01 fattura 32\n'
+        '23-07-2025\n'
         '6RB0OU9\n'
         'Totale documento 122,00\n'
     )

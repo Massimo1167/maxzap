@@ -125,11 +125,25 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
         {"header": "Data documento", "key": "data"},
         {"header": "Codice destinatario", "key": "codice_destinatario", "tokens": 1},
     ]
+    header_tokens = []
+    for c in columns:
+        header_tokens.extend(c["header"].split())
     doc_row = {}
     for idx, line in enumerate(lines):
         if "Tipologia documento" in line:
-            snippet = " ".join(lines[idx: idx + 5])
-            doc_row = extract_table_row(snippet, columns)
+            snippet_lines: List[str] = []
+            for off in range(0, 10):
+                if idx + off >= len(lines):
+                    break
+                snippet_lines.append(lines[idx + off])
+                if off >= 4:
+                    snippet = " ".join(snippet_lines)
+                    tokens = re.findall(r"\S+", snippet)
+                    if len(tokens) - len(header_tokens) < len(columns):
+                        continue
+                    doc_row = extract_table_row(snippet, columns)
+                    if doc_row and any(doc_row.values()):
+                        break
             if doc_row:
                 break
     if doc_row:
