@@ -45,13 +45,15 @@
             "pattern": "Cedente/prestatore \\(fornitore\\)",
             "name_template": "{data_documento} Fattura {numero_documento} {denominazione}.pdf",
             "regex_fields": {
-              "denominazione": "Denominazione:\\s*(.+)"
+              "denominazione": "Denominazione:\\s*(.+)",
+              "numero_documento": "Numero\\s+documento\\s*(\\S+(?:\\s*\\n\\s*\\S+)*)",
+              "data_documento": "Data\\s+documento\\s*(\\d{2}/\\d{2}/\\d{4})"
             },
 			"table_fields": [
 			  {"header": "Tipologia documento", "key": "tipologia", "tokens": 2},
 			  {"header": "Art. 73", "key": "art_73", "tokens": 0},
-			  {"header": "Numero documento", "key": "numero_documento"},
-			  {"header": "Data documento", "key": "data_documento"},
+			  {"header": "Numero documento", "key": "numero"},
+			  {"header": "Data documento", "key": "data"},
 			  {"header": "Codice destinatario", "key": "dest"}
 			]
           }

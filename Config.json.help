@@ -264,3 +264,24 @@ Payload in ingresso: text o message con il contenuto della notifica.
 Nessun payload di ritorno.
 
 Questi sono tutti i trigger e le action presenti nel progetto, con i rispettivi parametri e la struttura dei dati che producono o consumano.
+
+****************
+Per la generazione del nome dei file il plugin pdf_split riempie il dizionario fields in questo ordine:
+applica le espressioni in regex_fields;
+solo per le chiavi non ancora presenti applica i valori estratti con table_fields.
+Quindi, se una chiave viene già compilata tramite regex_fields, il corrispondente valore ottenuto con table_fields viene ignorato.
+Per usare i dati della tabella nel nome del file basta:
+associare nelle table_fields le chiavi che vuoi usare (es. numero_documento e data_documento);
+evitare di definire le stesse chiavi in regex_fields oppure rinominarle.
+
+{
+  "name_template": "{data_documento} Fattura {numero_documento} {denominazione}.pdf",
+  "regex_fields": {
+    "denominazione": "Denominazione:\\s*(.+)"
+  },
+  "table_fields": [
+    {"header": "Numero documento", "key": "numero_documento"},
+    {"header": "Data documento", "key": "data_documento"}
+  ]
+}
+In questo modo i campi numero_documento e data_documento verranno presi dalla tabella del PDF e potranno essere utilizzati nel name_template per costruire correttamente il nome del file.
