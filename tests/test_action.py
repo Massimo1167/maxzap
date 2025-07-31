@@ -1082,6 +1082,30 @@ def test_parse_invoice_text_table_header():
     assert data['documento']['codice_destinatario'] == '6RB0OU9'
 
 
+def test_parse_invoice_split_number():
+    from pyzap.pdf_utils import parse_invoice_text
+
+    text = (
+        'Cedente/prestatore (fornitore)\n'
+        'Denominazione: Fornitore SRL\n'
+        'Cessionario/committente (cliente)\n'
+        'Denominazione: Cliente SPA\n'
+        'Tipologia documento Art.\n'
+        '73 Numero documento Data documento Codice\n'
+        'destinatario\n'
+        'TD01 fattura V2-\n'
+        '250035405 23-07-2025\n'
+        '6RB0OU9\n'
+        'Totale documento 122,00\n'
+    )
+
+    data = parse_invoice_text(text)
+
+    assert data['documento']['numero'] == 'V2- 250035405'
+    assert data['documento']['data'] == '23-07-2025'
+    assert data['documento']['codice_destinatario'] == '6RB0OU9'
+
+
 def test_pdf_split_parse_invoice(monkeypatch, tmp_path):
     text = (
         'start Cedente/prestatore (fornitore)\n'
