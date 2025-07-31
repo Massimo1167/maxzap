@@ -44,7 +44,18 @@
             "output_dir": "../fatture/split",
             "pattern": "Cedente/prestatore \\(fornitore\\)",
 			"parse_invoice": true,
-            "name_template": "{documento_data} Fattura {documento_numero} {fornitore_denominazione}.pdf",
+            "name_template": "{data_documento} Fattura {numero_documento} {denominazione}.pdf",
+            "regex_fields": {
+			  "_comment_0": "Limita la ricerca al primo nl e limita il numero massimo di parole a 3",
+              "denominazione": "Denominazione:\\s*((?:\\S+\\s+){0,1}\\S+)"
+            },
+			"table_fields": [
+			  {"header": "Tipologia documento", "key": "tipologia", "tokens": 2},
+			  {"header": "Art. 73", "key": "art_73", "tokens": 0},
+			  {"header": "Numero documento", "key": "numero_documento", "tokens": 2},
+			  {"header": "Data documento", "key": "data_documento"},
+			  {"header": "Codice destinatario", "key": "dest"}
+			]
           }
         }
       ]
