@@ -1055,3 +1055,45 @@ def test_parse_invoice_text():
     assert data['documento']['numero'] == '123'
     assert data['righe_dettaglio'][0]['iva_percentuale'] == 4.0
     assert data['pagamento']['modalita'] == 'Bonifico'
+
+
+def test_pdf_split_parse_invoice(monkeypatch, tmp_path):
+    text = (
+        'start Cedente/prestatore (fornitore)\n'
+        'IVA: 12345678901\n'
+        'Codice fiscale: FORNITORECF\n'
+        'Denominazione: Fornitore SRL\n'
+        'Indirizzo: Via Fornitore 1\n'
+        'Cessionario/committente (cliente)\n'
+        'Denominazione: Cliente SPA\n'
+        'Tipologia documento Fattura\n'
+        'Numero documento 123\n'
+        'Data documento 2025-07-23\n'
+        'Totale documento 122,00\n'
+        'MP01 Bonifico\n'
+    )
+    _setup_pypdf(monkeypatch, texts=[text])
+    import importlib
+
+    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.reload(module)
+    action_cls = module.PDFSplitAction
+
+    src = tmp_path / 'src.pdf'
+    src.write_bytes(b'data')
+
+    out_dir = tmp_path / 'out'
+    action = action_cls(
+        {
+            'output_dir': str(out_dir),
+            'pattern': 'start',
+            'name_template': '{documento_numero}.pdf',
+            'parse_invoice': True,
+        }
+    )
+    result = action.execute({'pdf_path': str(src)})
+
+    files = sorted(out_dir.glob('*.pdf'))
+    assert len(files) == 1
+    assert files[0].name == '123.pdf'
+    assert result['records'][0]['invoice']['documento']['numero'] == '123'

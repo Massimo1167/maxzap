@@ -19,7 +19,19 @@ def _safe_filename(name: str, max_length: int = 100) -> str:
     return name
 
 from ..core import BaseAction
-from ..pdf_utils import extract_table_row
+from ..pdf_utils import extract_table_row, parse_invoice_text
+
+
+def _flatten_dict(data: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
+    """Return a flat dict joining nested keys with underscores."""
+    flat: Dict[str, Any] = {}
+    for key, value in data.items():
+        new_key = f"{prefix}{key}"
+        if isinstance(value, dict):
+            flat.update(_flatten_dict(value, new_key + "_"))
+        else:
+            flat[new_key] = value
+    return flat
 
 
 class PDFSplitAction(BaseAction):
@@ -43,6 +55,7 @@ class PDFSplitAction(BaseAction):
         name_template = self.params.get("name_template", "split_{index}.pdf")
         regex_fields: Dict[str, str] = self.params.get("regex_fields", {})
         table_fields = self.params.get("table_fields")
+        parse_invoice = bool(self.params.get("parse_invoice"))
 
         if not pdf_path:
             raise ValueError("pdf_path parameter required")
@@ -58,24 +71,36 @@ class PDFSplitAction(BaseAction):
         writer = None
         fields: Dict[str, Any] = {}
         index = 1
+        chunk_text = ""
 
         for page in reader.pages:
             text = page.extract_text() or ""
             if pattern and re.search(pattern, text) and writer:
+                invoice_data = None
+                if parse_invoice:
+                    invoice_data = parse_invoice_text(chunk_text)
+                    flat = _flatten_dict(invoice_data)
+                    for k, v in flat.items():
+                        fields.setdefault(k, v)
                 info = {**data, **fields, "index": index}
                 filename = _safe_filename(name_template.format_map(defaultdict(str, info)))
                 path = os.path.join(output_dir, filename)
                 with open(path, "wb") as fh:
                     writer.write(fh)
+                record = {**fields, "file": path}
+                if invoice_data is not None:
+                    record["invoice"] = invoice_data
                 files.append(path)
-                records.append({**fields, "file": path})
+                records.append(record)
                 writer = None
                 fields = {}
+                chunk_text = ""
                 index += 1
 
             if writer is None:
                 writer = PdfWriter()
             writer.add_page(page)
+            chunk_text += text
 
             for key, regex in regex_fields.items():
                 if key not in fields:
@@ -93,13 +118,22 @@ class PDFSplitAction(BaseAction):
                         fields[key] = value
 
         if writer and len(getattr(writer, "pages", [])) > 0:
+            invoice_data = None
+            if parse_invoice:
+                invoice_data = parse_invoice_text(chunk_text)
+                flat = _flatten_dict(invoice_data)
+                for k, v in flat.items():
+                    fields.setdefault(k, v)
             info = {**data, **fields, "index": index}
             filename = _safe_filename(name_template.format_map(defaultdict(str, info)))
             path = os.path.join(output_dir, filename)
             with open(path, "wb") as fh:
                 writer.write(fh)
+            record = {**fields, "file": path}
+            if invoice_data is not None:
+                record["invoice"] = invoice_data
             files.append(path)
-            records.append({**fields, "file": path})
+            records.append(record)
 
         data["files"] = files
         if records:

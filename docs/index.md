@@ -137,4 +137,7 @@ Related actions can modify Excel files or work with row data:
   naming template. Filenames are automatically sanitised to remove characters
   that are not allowed by the operating system and are truncated to keep paths
   reasonably short. If `pdf_path` is omitted it uses the first
-  `attachment_paths` entry from the previous action.
+  `attachment_paths` entry from the previous action. Setting `parse_invoice` to
+  `true` parses each chunk with `parse_invoice_text` making placeholders like
+  `{documento_numero}` or `{cliente_denominazione}` available for the
+  `name_template`.
