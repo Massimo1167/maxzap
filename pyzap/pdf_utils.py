@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List
+import re
 
 
 def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
@@ -12,8 +13,8 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
     receives any remaining tokens.
     """
 
-    lines = [l.strip() for l in text.replace("\r", "").split("\n") if l.strip()]
-    if len(lines) < 2:
+    tokens = re.findall(r"\S+", text.replace("\r", " "))
+    if not tokens:
         return {}
 
     specs: List[Dict[str, Any]] = []
@@ -28,15 +29,21 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
             })
 
     headers = [s["header"] for s in specs]
+    header_tokens: List[str] = []
+    for h in headers:
+        header_tokens.extend(h.split())
+
+    header_tokens_lower = [t.lower() for t in header_tokens]
+    tokens_lower = [t.lower() for t in tokens]
     header_idx = None
-    for i, line in enumerate(lines[:-1]):
-        if all(h and h.lower() in line.lower() for h in headers):
+    for i in range(len(tokens_lower) - len(header_tokens_lower) + 1):
+        if tokens_lower[i : i + len(header_tokens_lower)] == header_tokens_lower:
             header_idx = i
             break
-    if header_idx is None or header_idx + 1 >= len(lines):
+    if header_idx is None or header_idx + len(header_tokens) >= len(tokens):
         return {}
 
-    value_tokens = lines[header_idx + 1].split()
+    value_tokens = tokens[header_idx + len(header_tokens) :]
     result: Dict[str, str] = {}
     idx = 0
     for j, spec in enumerate(specs):
@@ -51,6 +58,6 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
             tokens = max(0, min(tokens, remaining))
             value = " ".join(value_tokens[idx : idx + tokens])
             idx += tokens
-        result[spec["key"]] = value
+        result[spec["key"]] = value.replace("\n", " ")
 
     return result

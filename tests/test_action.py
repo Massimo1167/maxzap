@@ -989,3 +989,31 @@ def test_extract_table_row():
         'data': '23-07-2025',
         'dest': '6RB0OU9'
     }
+
+
+def test_extract_table_row_split_lines():
+    from pyzap.pdf_utils import extract_table_row
+
+    text = (
+        'Tipologia documento Art.\n'
+        '73 Numero documento Data documento Codice\n'
+        'destinatario\n'
+        'TD01 fattura 32 23-07-2025\n'
+        '6RB0OU9'
+    )
+    columns = [
+        {'header': 'Tipologia documento', 'key': 'tipologia', 'tokens': 2},
+        {'header': 'Art. 73', 'key': 'art_73', 'tokens': 0},
+        {'header': 'Numero documento', 'key': 'numero'},
+        {'header': 'Data documento', 'key': 'data'},
+        {'header': 'Codice destinatario', 'key': 'dest'}
+    ]
+
+    result = extract_table_row(text, columns)
+    assert result == {
+        'tipologia': 'TD01 fattura',
+        'art_73': '',
+        'numero': '32',
+        'data': '23-07-2025',
+        'dest': '6RB0OU9'
+    }
