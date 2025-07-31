@@ -123,7 +123,7 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
         {"header": "Art. 73", "key": "art_73", "tokens": 0},
         {"header": "Numero documento", "key": "numero"},
         {"header": "Data documento", "key": "data"},
-        {"header": "Codice destinatario", "key": "codice_destinatario"},
+        {"header": "Codice destinatario", "key": "codice_destinatario", "tokens": 1},
     ]
     doc_row = {}
     for idx, line in enumerate(lines):
