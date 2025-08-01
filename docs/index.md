@@ -140,4 +140,5 @@ Related actions can modify Excel files or work with row data:
   `attachment_paths` entry from the previous action. Setting `parse_invoice` to
   `true` parses each chunk with `parse_invoice_text` making placeholders like
   `{documento_numero}` or `{cliente_denominazione}` available for the
-  `name_template`.
+  `name_template`.  You can format date placeholders by specifying a
+  `date_formats` mapping with `strftime` patterns, e.g. `{ "documento_data": "%Y-%m-%d" }`.

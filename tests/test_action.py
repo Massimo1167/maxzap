@@ -1432,3 +1432,40 @@ def test_pdf_split_parse_invoice(monkeypatch, tmp_path):
     assert len(files) == 1
     assert files[0].name == '123.pdf'
     assert result['records'][0]['invoice']['documento']['numero'] == '123'
+
+
+def test_pdf_split_parse_invoice_date_format(monkeypatch, tmp_path):
+    text = (
+        'start Cedente/prestatore (fornitore)\n'
+        'Denominazione: Fornitore SRL\n'
+        'Cessionario/committente (cliente)\n'
+        'Denominazione: Cliente SPA\n'
+        'Tipologia documento Fattura\n'
+        'Numero documento 123\n'
+        'Data documento 2025-07-23\n'
+    )
+    _setup_pypdf(monkeypatch, texts=[text])
+    import importlib
+
+    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.reload(module)
+    action_cls = module.PDFSplitAction
+
+    src = tmp_path / 'src.pdf'
+    src.write_bytes(b'data')
+
+    out_dir = tmp_path / 'out'
+    action = action_cls(
+        {
+            'output_dir': str(out_dir),
+            'pattern': 'start',
+            'name_template': '{documento_data}.pdf',
+            'parse_invoice': True,
+            'date_formats': {'documento_data': '%Y%m%d'},
+        }
+    )
+    action.execute({'pdf_path': str(src)})
+
+    files = sorted(out_dir.glob('*.pdf'))
+    assert len(files) == 1
+    assert files[0].name == '20250723.pdf'
