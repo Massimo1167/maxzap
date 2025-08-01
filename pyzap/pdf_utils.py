@@ -153,33 +153,33 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
     for c in columns:
         header_tokens.extend(c["header"].split())
     doc_row = {}
+    max_lines = 10
     for idx, line in enumerate(lines):
         if "Tipologia documento" in line:
             snippet_lines: List[str] = []
-            for off in range(0, 10):
+            for off in range(max_lines):
                 if idx + off >= len(lines):
                     break
                 snippet_lines.append(lines[idx + off])
-                if off >= 4:
-                    snippet = " ".join(snippet_lines)
-                    # Some PDFs place another header (like "Totale documento") on the
-                    # same line as "Codice destinatario".  This breaks the normal
-                    # table extraction because extra tokens appear between the
-                    # headers and the actual row values.  Remove anything between
-                    # "Codice destinatario" and the first "TDxx" token which
-                    # typically starts the values.
-                    snippet = re.sub(
-                        r"(Codice destinatario)\s+.*?(TD\d{2})",
-                        r"\1 \2",
-                        snippet,
-                        flags=re.IGNORECASE,
-                    )
-                    tokens = re.findall(r"\S+", snippet)
-                    if len(tokens) - len(header_tokens) < len(columns):
-                        continue
-                    doc_row = extract_table_row(snippet, columns)
-                    if doc_row and doc_row.get("codice_destinatario"):
-                        break
+                snippet = " ".join(snippet_lines)
+                # Some PDFs place another header (like "Totale documento") on the
+                # same line as "Codice destinatario".  This breaks the normal
+                # table extraction because extra tokens appear between the
+                # headers and the actual row values.  Remove anything between
+                # "Codice destinatario" and the first "TDxx" token which
+                # typically starts the values.
+                snippet = re.sub(
+                    r"(Codice destinatario)\s+.*?(TD\d{2})",
+                    r"\1 \2",
+                    snippet,
+                    flags=re.IGNORECASE,
+                )
+                tokens = re.findall(r"\S+", snippet)
+                if len(tokens) - len(header_tokens) < len(columns):
+                    continue
+                doc_row = extract_table_row(snippet, columns)
+                if doc_row and doc_row.get("codice_destinatario"):
+                    break
             if doc_row and doc_row.get("codice_destinatario"):
                 break
     if doc_row:
