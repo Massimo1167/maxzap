@@ -43,7 +43,7 @@
           "params": {
             "output_dir": "../fatture/split",
             "pattern": "Cedente/prestatore \\(fornitore\\)",
-                        "parse_invoice": true,
+            "parse_invoice": true,
             "name_template": "{documento_data} Fattura {documento_numero} {fornitore_denominazione}.pdf",
             "date_formats": {"documento_data": "%Y-%m-%d"}
           }
