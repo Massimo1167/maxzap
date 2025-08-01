@@ -1361,6 +1361,37 @@ def test_parse_invoice_split_number_nextline_date():
     assert data['documento']['codice_destinatario'] == '6RB0OU9'
 
 
+def test_parse_invoice_header_words_split():
+    """Header words split across many lines."""
+    from pyzap.pdf_utils import parse_invoice_text
+
+    text = (
+        'Cedente/prestatore (fornitore)\n'
+        'Denominazione: Fornitore SRL\n'
+        'Cessionario/committente (cliente)\n'
+        'Denominazione: Cliente SPA\n'
+        'Tipologia documento Art. 73 Numero\n'
+        'documento\n'
+        'Data\n'
+        'documento\n'
+        'Codice\n'
+        'destinatario\n'
+        "TD24 fattura differita di cui all'art.21, comma 4, terzo periodo lett.\n"
+        'a) DPR 633/72\n'
+        'V2-\n'
+        '250035405\n'
+        '23-07-2025\n'
+        'Cod. articolo Descrizione Quantità Prezzo unitario UM Sconto o magg. %IVA Prezzo totale\n'
+    )
+
+    data = parse_invoice_text(text)
+
+    assert data['documento']['tipo'] == "TD24 fattura differita di cui all'art.21, comma 4, terzo periodo lett. a) DPR 633/72"
+    assert data['documento']['numero'] == 'V2- 250035405'
+    assert data['documento']['data'] == '23-07-2025'
+    assert data['documento']['codice_destinatario'] is None
+
+
 def test_pdf_split_parse_invoice(monkeypatch, tmp_path):
     text = (
         'start Cedente/prestatore (fornitore)\n'

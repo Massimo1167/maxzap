@@ -160,6 +160,10 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
         r"Tipologia documento|Art\.?|Numero documento|Data documento|Codice destinatario",
         re.IGNORECASE,
     )
+    split_header_re = re.compile(
+        r"^(?:tipologia|documento|art\.?|73|numero|data|codice|destinatario)$",
+        re.IGNORECASE,
+    )
     for idx, line in enumerate(lines):
         if "Tipologia documento" in line:
             header_start = idx
@@ -168,7 +172,9 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                 if idx + off >= len(lines):
                     break
                 nxt = lines[idx + off]
-                if header_re.search(nxt):
+                if re.match(r"TD\d{2}", nxt):
+                    break
+                if header_re.search(nxt) or split_header_re.match(nxt):
                     header_end = idx + off
                     if "Codice destinatario" in nxt:
                         break
@@ -193,7 +199,10 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
             value_tokens.extend(re.findall(r"\S+", line))
 
         # Drop leftover header words that occasionally precede the real values
-        while value_tokens and re.match(r"(?i)(codice|destinatario|altra|art\.?|73)", value_tokens[0]):
+        while value_tokens and re.match(
+            r"(?i)(codice|destinatario|altra|art\.?|73|documento|data|numero)",
+            value_tokens[0],
+        ):
             value_tokens.pop(0)
 
         date_idx = None
