@@ -37,7 +37,7 @@ class GDriveUploadAction(BaseAction):
                 filename = filename or os.path.basename(file_path)
                 with open(file_path, "rb") as fh:
                     content = fh.read()
-            except FileNotFoundError as exc:
+            except FileNotFoundError:
                 logging.error("File %s not found", file_path)
                 raise
 
