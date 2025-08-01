@@ -9,7 +9,8 @@
           "output_dir": "./split",
           "pattern": "Cedente/prestatore",
           "parse_invoice": true,
-          "name_template": "{documento_numero}_{cliente_denominazione}.pdf"
+          "name_template": "{documento_numero}_{cliente_denominazione}.pdf",
+          "date_formats": {"documento_data": "%Y-%m-%d"}
         }}
       ]
     }

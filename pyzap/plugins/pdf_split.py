@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 
 from ..core import BaseAction
 from ..pdf_utils import extract_table_row, parse_invoice_text
+from ..formatter import parse_date
 
 
 _INVALID_CHARS = re.compile(r'[\\/*?:"<>|]')
@@ -57,6 +58,7 @@ class PDFSplitAction(BaseAction):
         regex_fields: Dict[str, str] = self.params.get("regex_fields", {})
         table_fields = self.params.get("table_fields")
         parse_invoice = bool(self.params.get("parse_invoice"))
+        date_formats: Dict[str, str] = self.params.get("date_formats", {})
 
         if not pdf_path:
             raise ValueError("pdf_path parameter required")
@@ -82,6 +84,11 @@ class PDFSplitAction(BaseAction):
                     invoice_data = parse_invoice_text(chunk_text)
                     flat = _flatten_dict(invoice_data)
                     for k, v in flat.items():
+                        if k in date_formats and isinstance(v, str):
+                            try:
+                                v = parse_date(v).strftime(date_formats[k])
+                            except Exception:
+                                pass
                         fields.setdefault(k, v)
                 info = {**data, **fields, "index": index}
                 filename = _safe_filename(name_template.format_map(defaultdict(str, info)))
@@ -124,6 +131,11 @@ class PDFSplitAction(BaseAction):
                 invoice_data = parse_invoice_text(chunk_text)
                 flat = _flatten_dict(invoice_data)
                 for k, v in flat.items():
+                    if k in date_formats and isinstance(v, str):
+                        try:
+                            v = parse_date(v).strftime(date_formats[k])
+                        except Exception:
+                            pass
                     fields.setdefault(k, v)
             info = {**data, **fields, "index": index}
             filename = _safe_filename(name_template.format_map(defaultdict(str, info)))
