@@ -56,6 +56,12 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
             if spec.get("until_regex"):
                 pattern = re.compile(spec["until_regex"])
                 start = idx
+                min_tokens = spec.get("tokens")
+                if min_tokens is not None:
+                    for _ in range(min_tokens):
+                        if idx >= len(value_tokens) or pattern.match(value_tokens[idx]):
+                            break
+                        idx += 1
                 while idx < len(value_tokens) and not pattern.match(value_tokens[idx]):
                     idx += 1
                 value = " ".join(value_tokens[start:idx])
@@ -70,6 +76,12 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
             if spec.get("until_regex"):
                 pattern = re.compile(spec["until_regex"])
                 start = idx
+                min_tokens = spec.get("tokens")
+                if min_tokens is not None:
+                    for _ in range(min_tokens):
+                        if idx >= len(value_tokens) or pattern.match(value_tokens[idx]):
+                            break
+                        idx += 1
                 while idx < len(value_tokens) and not pattern.match(value_tokens[idx]):
                     idx += 1
                 value = " ".join(value_tokens[start:idx])
@@ -144,6 +156,7 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
         {
             "header": "Numero documento",
             "key": "numero",
+            "tokens": 2,
             "until_regex": r"\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4}|\d{2}/\d{2}/\d{4}",
         },
         {"header": "Data documento", "key": "data"},

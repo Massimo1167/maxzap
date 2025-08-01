@@ -1184,6 +1184,31 @@ def test_parse_invoice_split_number_extended():
     assert data['documento']['codice_destinatario'] == '6RB0OU9'
 
 
+def test_parse_invoice_split_number_newline():
+    """Invoice number split in the middle of digits."""
+    from pyzap.pdf_utils import parse_invoice_text
+
+    text = (
+        'Cedente/prestatore (fornitore)\n'
+        'Denominazione: Fornitore SRL\n'
+        'Cessionario/committente (cliente)\n'
+        'Denominazione: Cliente SPA\n'
+        'Tipologia documento Art.\n'
+        '73 Numero documento Data documento Codice\n'
+        'destinatario\n'
+        'TD01 fattura 12\n'
+        '345 23-07-2025\n'
+        '6RB0OU9\n'
+        'Totale documento 122,00\n'
+    )
+
+    data = parse_invoice_text(text)
+
+    assert data['documento']['numero'] == '12 345'
+    assert data['documento']['data'] == '23-07-2025'
+    assert data['documento']['codice_destinatario'] == '6RB0OU9'
+
+
 def test_pdf_split_parse_invoice(monkeypatch, tmp_path):
     text = (
         'start Cedente/prestatore (fornitore)\n'
