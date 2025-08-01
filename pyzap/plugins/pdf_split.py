@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any, Dict, List
 from collections import defaultdict
+from typing import Any, Dict, List
 
 from ..core import BaseAction
 from ..pdf_utils import extract_table_row, parse_invoice_text
