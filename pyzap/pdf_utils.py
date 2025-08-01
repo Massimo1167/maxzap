@@ -150,51 +150,91 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
             "indirizzo": _extract(r"Indirizzo\s*[:\-]?\s*(.*?)(?:\n|$)", client_chunk),
         }
 
-    columns = [
-        {"header": "Tipologia documento", "key": "tipo", "tokens": 2},
-        {"header": "Art. 73", "key": "art_73", "tokens": 0},
-        {
-            "header": "Numero documento",
-            "key": "numero",
-            "tokens": 2,
-            "until_regex": r"\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4}|\d{2}/\d{2}/\d{4}",
-        },
-        {"header": "Data documento", "key": "data"},
-        {"header": "Codice destinatario", "key": "codice_destinatario", "tokens": 1},
-    ]
-    header_tokens = []
-    for c in columns:
-        header_tokens.extend(c["header"].split())
-    doc_row = {}
-    max_lines = 10
+    # Look for the header spanning up to ten lines starting with "Tipologia documento"
+    date_re = re.compile(
+        r"\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4}|\d{2}/\d{2}/\d{4}")
+
+    header_start = None
+    header_end = None
+    header_re = re.compile(
+        r"Tipologia documento|Art\.?|Numero documento|Data documento|Codice destinatario",
+        re.IGNORECASE,
+    )
+    split_header_re = re.compile(
+        r"^(?:tipologia|documento|art\.?|73|numero|data|codice|destinatario)$",
+        re.IGNORECASE,
+    )
     for idx, line in enumerate(lines):
         if "Tipologia documento" in line:
-            snippet_lines: List[str] = []
-            for off in range(max_lines):
+            header_start = idx
+            header_end = idx
+            for off in range(1, 10):
                 if idx + off >= len(lines):
                     break
-                snippet_lines.append(lines[idx + off])
-                snippet = " ".join(snippet_lines)
-                # Some PDFs place another header (like "Totale documento") on the
-                # same line as "Codice destinatario".  This breaks the normal
-                # table extraction because extra tokens appear between the
-                # headers and the actual row values.  Remove anything between
-                # "Codice destinatario" and the first "TDxx" token which
-                # typically starts the values.
-                snippet = re.sub(
-                    r"(Codice destinatario)\s+.*?(TD\d{2})",
-                    r"\1 \2",
-                    snippet,
-                    flags=re.IGNORECASE,
-                )
-                tokens = re.findall(r"\S+", snippet)
-                if len(tokens) - len(header_tokens) < len(columns):
-                    continue
-                doc_row = extract_table_row(snippet, columns)
-                if doc_row and doc_row.get("codice_destinatario"):
+                nxt = lines[idx + off]
+                if re.match(r"TD\d{2}", nxt):
                     break
-            if doc_row and doc_row.get("codice_destinatario"):
+                if header_re.search(nxt) or split_header_re.match(nxt):
+                    header_end = idx + off
+                    if "Codice destinatario" in nxt:
+                        break
+                else:
+                    break
+            break
+    doc_row: Dict[str, str] = {}
+    if header_start is not None and header_end is not None:
+        # Gather tokens after the header until the detail table begins
+        value_tokens: List[str] = []
+        for line in lines[header_end + 1 : header_end + 11]:
+            if re.search(r"Cod\.\s*articolo", line, re.IGNORECASE):
+                part = re.split(r"Cod\.\s*articolo", line, flags=re.IGNORECASE)[0]
+                value_tokens.extend(re.findall(r"\S+", part))
                 break
+            if re.search(r"Totale documento", line, re.IGNORECASE):
+                part = re.split(r"Totale documento", line, flags=re.IGNORECASE)[0]
+                value_tokens.extend(re.findall(r"\S+", part))
+                break
+            if re.search(r"Prezzo totale|RIEPILOGHI", line, re.IGNORECASE):
+                break
+            value_tokens.extend(re.findall(r"\S+", line))
+
+        # Drop leftover header words that occasionally precede the real values
+        while value_tokens and re.match(
+            r"(?i)(codice|destinatario|altra|art\.?|73|documento|data|numero)",
+            value_tokens[0],
+        ):
+            value_tokens.pop(0)
+
+        date_idx = None
+        for i, tok in enumerate(value_tokens):
+            if date_re.match(tok):
+                date_idx = i
+                break
+
+        if date_idx is not None:
+            # Determine invoice number tokens (1-2 tokens before the date)
+            inv_tokens: List[str] = []
+            i = date_idx - 1
+            if i >= 0 and re.search(r"\d", value_tokens[i]):
+                inv_tokens.insert(0, value_tokens[i])
+                i -= 1
+                if (
+                    i >= 0
+                    and re.search(r"\d", value_tokens[i])
+                    and not re.match(r"^TD\d{2}$", value_tokens[i], re.IGNORECASE)
+                ):
+                    inv_tokens.insert(0, value_tokens[i])
+                    i -= 1
+            tipologia_tokens = value_tokens[: i + 1]
+            codice_tokens = value_tokens[date_idx + 1 :]
+            doc_row = {
+                "tipo": " ".join(tipologia_tokens) if tipologia_tokens else None,
+                "numero": " ".join(inv_tokens) if inv_tokens else None,
+                "data": value_tokens[date_idx],
+                "codice_destinatario": " ".join(codice_tokens) if codice_tokens else None,
+                "art_73": None,
+            }
+
     if doc_row:
         data["documento"] = {
             "tipo": doc_row.get("tipo"),
