@@ -1209,6 +1209,83 @@ def test_parse_invoice_split_number_newline():
     assert data['documento']['codice_destinatario'] == '6RB0OU9'
 
 
+def test_parse_invoice_codice_destinatario_inline_header():
+    """Header line has another header token after 'Codice destinatario'."""
+    from pyzap.pdf_utils import parse_invoice_text
+
+    text = (
+        'Cedente/prestatore (fornitore)\n'
+        'Denominazione: Fornitore SRL\n'
+        'Cessionario/committente (cliente)\n'
+        'Denominazione: Cliente SPA\n'
+        'Tipologia documento Art.\n'
+        '73 Numero documento Data documento Codice destinatario Totale documento\n'
+        'TD01 fattura 32 23-07-2025 6RB0OU9\n'
+        'Totale documento 122,00\n'
+    )
+
+    data = parse_invoice_text(text)
+
+    assert data['documento']['tipo'] == 'TD01 fattura'
+    assert data['documento']['numero'] == '32'
+    assert data['documento']['data'] == '23-07-2025'
+    assert data['documento']['codice_destinatario'] == '6RB0OU9'
+
+
+def test_parse_invoice_header_block_many_lines():
+    """Header/value block spans more than five lines before the row."""
+    from pyzap.pdf_utils import parse_invoice_text
+
+    text = (
+        'Cedente/prestatore (fornitore)\n'
+        'Denominazione: Fornitore SRL\n'
+        'Cessionario/committente (cliente)\n'
+        'Denominazione: Cliente SPA\n'
+        'Tipologia documento\n'
+        'Art.\n'
+        '73 Numero documento\n'
+        'Data documento\n'
+        'Codice\n'
+        'destinatario\n'
+        'TD01 fattura 32\n'
+        '23-07-2025\n'
+        '6RB0OU9\n'
+        'Totale documento 122,00\n'
+    )
+
+    data = parse_invoice_text(text)
+
+    assert data['documento']['tipo'] == 'TD01 fattura'
+    assert data['documento']['numero'] == '32'
+    assert data['documento']['data'] == '23-07-2025'
+    assert data['documento']['codice_destinatario'] == '6RB0OU9'
+
+
+def test_parse_invoice_number_split_newline_alt():
+    """Invoice number split across a newline should be reconstructed."""
+    from pyzap.pdf_utils import parse_invoice_text
+
+    text = (
+        'Cedente/prestatore (fornitore)\n'
+        'Denominazione: Fornitore SRL\n'
+        'Cessionario/committente (cliente)\n'
+        'Denominazione: Cliente SPA\n'
+        'Tipologia documento Art.\n'
+        '73 Numero documento Data documento Codice\n'
+        'destinatario\n'
+        'TD01 fattura 99-\n'
+        '001 23-07-2025\n'
+        '6RB0OU9\n'
+        'Totale documento 122,00\n'
+    )
+
+    data = parse_invoice_text(text)
+
+    assert data['documento']['numero'] == '99- 001'
+    assert data['documento']['data'] == '23-07-2025'
+    assert data['documento']['codice_destinatario'] == '6RB0OU9'
+
+
 def test_pdf_split_parse_invoice(monkeypatch, tmp_path):
     text = (
         'start Cedente/prestatore (fornitore)\n'
