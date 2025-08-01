@@ -11,7 +11,7 @@ def clean_text(text: str) -> str:
 
 def parse_date(value: str) -> _dt.datetime:
     """Parse a date string."""
-    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y"):
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"):
         try:
             return _dt.datetime.strptime(value, fmt)
         except ValueError:
