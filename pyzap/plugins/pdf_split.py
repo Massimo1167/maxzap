@@ -5,6 +5,9 @@ import re
 from typing import Any, Dict, List
 from collections import defaultdict
 
+from ..core import BaseAction
+from ..pdf_utils import extract_table_row, parse_invoice_text
+
 
 _INVALID_CHARS = re.compile(r'[\\/*?:"<>|]')
 
@@ -18,8 +21,6 @@ def _safe_filename(name: str, max_length: int = 100) -> str:
         name = base[: max_length - len(ext)] + ext
     return name
 
-from ..core import BaseAction
-from ..pdf_utils import extract_table_row, parse_invoice_text
 
 
 def _flatten_dict(data: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
