@@ -49,29 +49,32 @@ class ExcelPollTrigger(BaseTrigger):
 
         with excel_lock(file_path):
             wb = load_workbook(file_path, read_only=True)
-            ws = wb[sheet_name] if sheet_name else wb.active
+            try:
+                ws = wb[sheet_name] if sheet_name else wb.active
 
-            max_row = getattr(ws, "max_row", None)
-            if max_row is None:
-                rows_attr = getattr(ws, "rows", [])
-                try:
-                    max_row = len(list(rows_attr))
-                except TypeError:
-                    max_row = len(rows_attr)
+                max_row = getattr(ws, "max_row", None)
+                if max_row is None:
+                    rows_attr = getattr(ws, "rows", [])
+                    try:
+                        max_row = len(list(rows_attr))
+                    except TypeError:
+                        max_row = len(rows_attr)
 
-            results: List[Dict[str, Any]] = []
-            for row_idx in range(self.last_row + 1, max_row + 1):
-                cells = ws[row_idx]
-                values = [getattr(c, "value", None) for c in cells]
-                match = True
-                for col, expected in filters.items():
-                    idx = int(col) - 1
-                    val = values[idx] if idx < len(values) else None
-                    if val != expected:
-                        match = False
-                        break
-                if match:
-                    results.append({"id": str(row_idx), "values": values})
+                results: List[Dict[str, Any]] = []
+                for row_idx in range(self.last_row + 1, max_row + 1):
+                    cells = ws[row_idx]
+                    values = [getattr(c, "value", None) for c in cells]
+                    match = True
+                    for col, expected in filters.items():
+                        idx = int(col) - 1
+                        val = values[idx] if idx < len(values) else None
+                        if val != expected:
+                            match = False
+                            break
+                    if match:
+                        results.append({"id": str(row_idx), "values": values})
+            finally:
+                getattr(wb, "close", lambda: None)()
 
         self.last_row = max_row
         self._save_state()
