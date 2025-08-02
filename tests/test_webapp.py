@@ -1,8 +1,18 @@
 """Tests for the minimal GUI web application."""
 
 import json
+import re
 
 from pyzap.webapp import app, CONFIG_PATH
+
+
+def _get_csrf_token(client, path):
+    """Retrieve CSRF token from form at ``path``."""
+    resp = client.get(path)
+    assert resp.status_code == 200
+    match = re.search(r'name="csrf_token" value="([^"]+)"', resp.data.decode())
+    assert match
+    return match.group(1)
 
 
 def test_index_route(tmp_path, monkeypatch):
@@ -22,6 +32,7 @@ def test_create_workflow_via_form(tmp_path, monkeypatch):
     monkeypatch.setattr("pyzap.webapp.CONFIG_PATH", str(cfg_path))
 
     client = app.test_client()
+    token = _get_csrf_token(client, "/workflow/new")
     resp = client.post(
         "/workflow/new",
         data={
@@ -30,6 +41,7 @@ def test_create_workflow_via_form(tmp_path, monkeypatch):
             "trigger_query": "",
             "trigger_token_file": "",
             "actions": "[]",
+            "csrf_token": token,
         },
         follow_redirects=True,
     )
@@ -45,6 +57,7 @@ def test_invalid_json_actions(tmp_path, monkeypatch):
     monkeypatch.setattr("pyzap.webapp.CONFIG_PATH", str(cfg_path))
 
     client = app.test_client()
+    token = _get_csrf_token(client, "/workflow/new")
     resp = client.post(
         "/workflow/new",
         data={
@@ -53,6 +66,7 @@ def test_invalid_json_actions(tmp_path, monkeypatch):
             "trigger_query": "",
             "trigger_token_file": "",
             "actions": "[invalid",
+            "csrf_token": token,
         },
     )
     assert resp.status_code == 200
@@ -102,6 +116,7 @@ def test_edit_workflow_via_form(tmp_path, monkeypatch):
     monkeypatch.setattr("pyzap.webapp.CONFIG_PATH", str(cfg_path))
 
     client = app.test_client()
+    token = _get_csrf_token(client, "/workflow/0")
     resp = client.post(
         "/workflow/0",
         data={
@@ -110,6 +125,7 @@ def test_edit_workflow_via_form(tmp_path, monkeypatch):
             "trigger_query": "new-query",
             "trigger_token_file": "token.json",
             "actions": "[]",
+            "csrf_token": token,
         },
         follow_redirects=True,
     )
