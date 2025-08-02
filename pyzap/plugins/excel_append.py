@@ -90,4 +90,5 @@ class ExcelAppendAction(BaseAction):
                     ws.append(row)
                     wb.save(file_path)
             finally:
+                getattr(getattr(wb, "vba_archive", None), "close", lambda: None)()
                 getattr(wb, "close", lambda: None)()
