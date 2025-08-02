@@ -41,6 +41,9 @@ EDIT_TEMPLATE = """
 <!doctype html>
 <title>Workflow editor</title>
 <h1>{{ 'Nuovo' if index is none else 'Modifica' }} workflow</h1>
+{% if error %}
+  <p style="color: red;">{{ error }}</p>
+{% endif %}
 <form method="post">
   <label>ID<br><input name="id" value="{{ wf.id }}" required></label><br>
   <h2>Trigger</h2>
@@ -49,7 +52,7 @@ EDIT_TEMPLATE = """
   <label>Token file<br><input name="trigger_token_file" value="{{ wf.trigger.token_file }}"></label><br>
   <h2>Azioni</h2>
   <p>Inserisci un array JSON di azioni.</p>
-  <textarea name="actions" rows="10" cols="80">{{ wf.actions | tojson(indent=2) }}</textarea><br>
+  <textarea name="actions" rows="10" cols="80">{{ actions_text }}</textarea><br>
   <button type="submit">Salva</button>
 </form>
 <p><a href="{{ url_for('index') }}">Torna alla lista</a></p>
@@ -75,6 +78,27 @@ def edit_workflow(index=None):
     workflows = _get_workflows(cfg)
 
     if request.method == "POST":
+        actions_text = request.form.get("actions", "[]")
+        try:
+            actions = json.loads(actions_text)
+        except json.JSONDecodeError:
+            wf = {
+                "id": request.form["id"],
+                "trigger": {
+                    "type": request.form.get("trigger_type", ""),
+                    "query": request.form.get("trigger_query", ""),
+                    "token_file": request.form.get("trigger_token_file", ""),
+                },
+                "actions": [],
+            }
+            return render_template_string(
+                EDIT_TEMPLATE,
+                wf=wf,
+                index=index,
+                error="Invalid JSON in actions",
+                actions_text=actions_text,
+            )
+
         wf = {
             "id": request.form["id"],
             "trigger": {
@@ -82,7 +106,7 @@ def edit_workflow(index=None):
                 "query": request.form.get("trigger_query", ""),
                 "token_file": request.form.get("trigger_token_file", ""),
             },
-            "actions": json.loads(request.form.get("actions", "[]")),
+            "actions": actions,
         }
         if index is None:
             workflows.append(wf)
@@ -100,7 +124,10 @@ def edit_workflow(index=None):
         if index is not None and index < len(workflows)
         else {"id": "", "trigger": {"type": "", "query": "", "token_file": ""}, "actions": []}
     )
-    return render_template_string(EDIT_TEMPLATE, wf=wf, index=index)
+    actions_text = json.dumps(wf.get("actions", []), indent=2)
+    return render_template_string(
+        EDIT_TEMPLATE, wf=wf, index=index, error=None, actions_text=actions_text
+    )
 
 
 @app.route("/api/workflows", methods=["POST"])
