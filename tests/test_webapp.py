@@ -77,3 +77,46 @@ def test_create_workflow_via_api(tmp_path, monkeypatch):
     assert resp.status_code == 200
     data = json.loads(cfg_path.read_text())
     assert data[0]["id"] == "wf_api"
+
+
+def test_edit_workflow_via_form(tmp_path, monkeypatch):
+    """Existing workflows can be modified via the HTML form."""
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text(
+        json.dumps(
+            {
+                "workflows": [
+                    {
+                        "id": "wf1",
+                        "trigger": {
+                            "type": "manual",
+                            "query": "",
+                            "token_file": "",
+                        },
+                        "actions": [],
+                    }
+                ]
+            }
+        )
+    )
+    monkeypatch.setattr("pyzap.webapp.CONFIG_PATH", str(cfg_path))
+
+    client = app.test_client()
+    resp = client.post(
+        "/workflow/0",
+        data={
+            "id": "wf1_mod",
+            "trigger_type": "manual",
+            "trigger_query": "new-query",
+            "trigger_token_file": "token.json",
+            "actions": "[]",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+
+    data = json.loads(cfg_path.read_text())
+    wf = data["workflows"][0]
+    assert wf["id"] == "wf1_mod"
+    assert wf["trigger"]["query"] == "new-query"
+    assert wf["trigger"]["token_file"] == "token.json"
