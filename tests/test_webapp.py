@@ -57,3 +57,23 @@ def test_invalid_json_actions(tmp_path, monkeypatch):
     )
     assert resp.status_code == 200
     assert b"Invalid JSON" in resp.data
+
+
+def test_create_workflow_via_api(tmp_path, monkeypatch):
+    """Ensure the API saves workflows when config is a plain list."""
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text("[]")
+    monkeypatch.setattr("pyzap.webapp.CONFIG_PATH", str(cfg_path))
+
+    client = app.test_client()
+    resp = client.post(
+        "/api/workflows",
+        json={
+            "id": "wf_api",
+            "trigger": {"type": "manual", "query": "", "token_file": ""},
+            "actions": [],
+        },
+    )
+    assert resp.status_code == 200
+    data = json.loads(cfg_path.read_text())
+    assert data[0]["id"] == "wf_api"

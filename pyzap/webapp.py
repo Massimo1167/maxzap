@@ -64,6 +64,15 @@ def _get_workflows(cfg):
     return cfg.get("workflows", []) if isinstance(cfg, dict) else cfg
 
 
+def _save_workflows(cfg, workflows):
+    """Persist the updated workflows back to ``CONFIG_PATH``."""
+    if isinstance(cfg, dict):
+        cfg["workflows"] = workflows
+        save_config(CONFIG_PATH, cfg)
+    else:
+        save_config(CONFIG_PATH, workflows)
+
+
 @app.route("/")
 def index():
     cfg = load_config(CONFIG_PATH)
@@ -112,11 +121,7 @@ def edit_workflow(index=None):
             workflows.append(wf)
         else:
             workflows[index] = wf
-        if isinstance(cfg, dict):
-            cfg["workflows"] = workflows
-            save_config(CONFIG_PATH, cfg)
-        else:
-            save_config(CONFIG_PATH, workflows)
+        _save_workflows(cfg, workflows)
         return redirect(url_for("index"))
 
     wf = (
@@ -137,11 +142,7 @@ def create_workflow_api():
     cfg = load_config(CONFIG_PATH)
     workflows = _get_workflows(cfg)
     workflows.append(data)
-    if isinstance(cfg, dict):
-        cfg["workflows"] = workflows
-        save_config(CONFIG_PATH, cfg)
-    else:
-        save_config(CONFIG_PATH, workflows)
+    _save_workflows(cfg, workflows)
     return jsonify({"status": "ok"})
 
 
