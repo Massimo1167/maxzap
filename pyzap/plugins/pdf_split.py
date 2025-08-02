@@ -67,7 +67,6 @@ class PDFSplitAction(BaseAction):
 
         os.makedirs(output_dir, exist_ok=True)
 
-        reader = PdfReader(pdf_path)
         files: List[str] = []
         records: List[Dict[str, Any]] = []
 
@@ -76,54 +75,57 @@ class PDFSplitAction(BaseAction):
         index = 1
         chunk_text = ""
 
-        for page in reader.pages:
-            text = page.extract_text() or ""
-            if pattern and re.search(pattern, text) and writer:
-                invoice_data = None
-                if parse_invoice:
-                    invoice_data = parse_invoice_text(chunk_text)
-                    flat = _flatten_dict(invoice_data)
-                    for k, v in flat.items():
-                        if k in date_formats and isinstance(v, str):
-                            try:
-                                v = parse_date(v).strftime(date_formats[k])
-                            except Exception:
-                                pass
-                        fields.setdefault(k, v)
-                info = {**data, **fields, "index": index}
-                filename = _safe_filename(name_template.format_map(defaultdict(str, info)))
-                path = os.path.join(output_dir, filename)
-                with open(path, "wb") as fh:
-                    writer.write(fh)
-                record = {**fields, "file": path}
-                if invoice_data is not None:
-                    record["invoice"] = invoice_data
-                files.append(path)
-                records.append(record)
-                writer = None
-                fields = {}
-                chunk_text = ""
-                index += 1
+        # Ensure the PDF file handle is properly closed after processing
+        with open(pdf_path, "rb") as fh:
+            reader = PdfReader(fh)
+            for page in reader.pages:
+                text = page.extract_text() or ""
+                if pattern and re.search(pattern, text) and writer:
+                    invoice_data = None
+                    if parse_invoice:
+                        invoice_data = parse_invoice_text(chunk_text)
+                        flat = _flatten_dict(invoice_data)
+                        for k, v in flat.items():
+                            if k in date_formats and isinstance(v, str):
+                                try:
+                                    v = parse_date(v).strftime(date_formats[k])
+                                except Exception:
+                                    pass
+                            fields.setdefault(k, v)
+                    info = {**data, **fields, "index": index}
+                    filename = _safe_filename(name_template.format_map(defaultdict(str, info)))
+                    path = os.path.join(output_dir, filename)
+                    with open(path, "wb") as out_fh:
+                        writer.write(out_fh)
+                    record = {**fields, "file": path}
+                    if invoice_data is not None:
+                        record["invoice"] = invoice_data
+                    files.append(path)
+                    records.append(record)
+                    writer = None
+                    fields = {}
+                    chunk_text = ""
+                    index += 1
 
-            if writer is None:
-                writer = PdfWriter()
-            writer.add_page(page)
-            chunk_text += text
+                if writer is None:
+                    writer = PdfWriter()
+                writer.add_page(page)
+                chunk_text += text
 
-            for key, regex in regex_fields.items():
-                if key not in fields:
-                    m = re.search(regex, text, re.DOTALL)
-                    if m:
-                        value = m.group(1) if m.groups() else m.group(0)
-                        if isinstance(value, str):
-                            value = re.sub(r"\s+", " ", value.strip())
-                        fields[key] = value
-
-            if table_fields:
-                table_data = extract_table_row(text, table_fields)
-                for key, value in table_data.items():
+                for key, regex in regex_fields.items():
                     if key not in fields:
-                        fields[key] = value
+                        m = re.search(regex, text, re.DOTALL)
+                        if m:
+                            value = m.group(1) if m.groups() else m.group(0)
+                            if isinstance(value, str):
+                                value = re.sub(r"\s+", " ", value.strip())
+                            fields[key] = value
+
+                if table_fields:
+                    table_data = extract_table_row(text, table_fields)
+                    for key, value in table_data.items():
+                        if key not in fields:
+                            fields[key] = value
 
         if writer and len(getattr(writer, "pages", [])) > 0:
             invoice_data = None
@@ -140,8 +142,8 @@ class PDFSplitAction(BaseAction):
             info = {**data, **fields, "index": index}
             filename = _safe_filename(name_template.format_map(defaultdict(str, info)))
             path = os.path.join(output_dir, filename)
-            with open(path, "wb") as fh:
-                writer.write(fh)
+            with open(path, "wb") as out_fh:
+                writer.write(out_fh)
             record = {**fields, "file": path}
             if invoice_data is not None:
                 record["invoice"] = invoice_data

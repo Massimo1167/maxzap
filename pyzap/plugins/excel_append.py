@@ -40,51 +40,68 @@ class ExcelAppendAction(BaseAction):
 
         with excel_lock(file_path):
             wb = load_workbook(file_path, keep_vba=keep_vba)
-            ws = wb[sheet_name] if sheet_name else wb.active
+            try:
+                ws = wb[sheet_name] if sheet_name else wb.active
 
-            if "values" in data:
-                values = data["values"]
-                field_names = [str(i) for i in range(len(values))]
-            else:
-                if not fields:
-                    fields = list(data.keys())
-                field_names = fields
-                values = [data.get(f) for f in fields]
+                rows_data: List[List[Any]]
+                if isinstance(data.get("records"), list):
+                    records = data["records"]
+                    if not fields and records:
+                        fields = list(records[0].keys())
+                    field_names = fields
+                    rows_data = [[record.get(f) for f in field_names] for record in records]
+                elif "values" in data:
+                    values = data["values"]
+                    field_names = [str(i) for i in range(len(values))]
+                    rows_data = [values]
+                else:
+                    if not fields:
+                        fields = list(data.keys())
+                    field_names = fields
+                    rows_data = [[data.get(f) for f in fields]]
 
-            def _convert(value: Any, name: str) -> Any:
-                if name == "storage_path" and not value:
-                    return None
-                if isinstance(value, str) and name in message_fields and max_message_length:
-                    value = value[:max_message_length]
-                if name == "datetime" and isinstance(value, str):
+                def _convert(value: Any, name: str) -> Any:
+                    if name == "storage_path" and not value:
+                        return None
+                    if isinstance(value, str) and name in message_fields and max_message_length:
+                        value = value[:max_message_length]
+                    if name == "datetime" and isinstance(value, str):
+                        try:
+                            dt = email.utils.parsedate_to_datetime(value)
+                            value = dt.strftime("%d/%m/%Y %H:%M:%S")
+                        except Exception:
+                            pass
+                    if name == "attachments" and isinstance(value, (list, tuple)):
+                        return "; ".join(str(v) for v in value)
+                    if isinstance(value, (list, tuple)):
+                        return ", ".join(str(v) for v in value)
+                    if isinstance(value, dict):
+                        return json.dumps(value, ensure_ascii=False)
+                    return value
+
+                appended = False
+                for values in rows_data:
+                    row = [_convert(v, n) for v, n in zip(values, field_names)]
+                    exists = False
                     try:
-                        dt = email.utils.parsedate_to_datetime(value)
-                        value = dt.strftime("%d/%m/%Y %H:%M:%S")
+                        rows = getattr(ws, "rows", None)
+                        if rows is not None:
+                            if row in list(rows):
+                                exists = True
+                        else:
+                            for existing in ws.values:
+                                if list(existing)[: len(row)] == row:
+                                    exists = True
+                                    break
                     except Exception:
                         pass
-                if name == "attachments" and isinstance(value, (list, tuple)):
-                    return "; ".join(str(v) for v in value)
-                if isinstance(value, (list, tuple)):
-                    return ", ".join(str(v) for v in value)
-                if isinstance(value, dict):
-                    return json.dumps(value, ensure_ascii=False)
-                return value
 
-            row = [_convert(v, n) for v, n in zip(values, field_names)]
-            exists = False
-            try:
-                rows = getattr(ws, "rows", None)
-                if rows is not None:
-                    if row in list(rows):
-                        exists = True
-                else:
-                    for existing in ws.values:
-                        if list(existing)[: len(row)] == row:
-                            exists = True
-                            break
-            except Exception:
-                pass
+                    if not exists:
+                        ws.append(row)
+                        appended = True
 
-            if not exists:
-                ws.append(row)
-                wb.save(file_path)
+                if appended:
+                    wb.save(file_path)
+            finally:
+                getattr(getattr(wb, "vba_archive", None), "close", lambda: None)()
+                getattr(wb, "close", lambda: None)()
