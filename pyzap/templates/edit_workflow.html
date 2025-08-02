@@ -1,0 +1,214 @@
+{% extends "layout.html" %}
+{% block title %}{{ 'Nuovo' if is_new else 'Modifica' }} Workflow{% endblock %}
+
+{% block content %}
+<form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ 'Nuovo' if is_new else 'Modifica' }} Workflow</h2>
+        <div>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                <i class="bi bi-x-lg"></i> Annulla
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i> Salva Workflow
+            </button>
+        </div>
+    </div>
+
+    <!-- Global Settings -->
+    <div class="card">
+        <div class="card-header">Impostazioni Globali</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="admin_email" class="form-label">Email Amministratore</label>
+                <input type="email" class="form-control" id="admin_email" name="admin_email" value="{{ cfg.admin_email or '' }}">
+            </div>
+            <h6>Configurazione SMTP</h6>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="smtp_host" class="form-label">Host SMTP</label>
+                    <input type="text" class="form-control" id="smtp_host" name="smtp_host" value="{{ cfg.smtp.host or '' }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="smtp_port" class="form-label">Porta SMTP</label>
+                    <input type="number" class="form-control" id="smtp_port" name="smtp_port" value="{{ cfg.smtp.port or '' }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="smtp_username" class="form-label">Username SMTP</label>
+                    <input type="text" class="form-control" id="smtp_username" name="smtp_username" value="{{ cfg.smtp.username or '' }}">
+                </div>
+                 <div class="col-md-6 mb-3">
+                    <label for="smtp_password" class="form-label">Password SMTP</label>
+                    <input type="password" class="form-control" id="smtp_password" name="smtp_password" value="{{ cfg.smtp.password or '' }}">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workflow Details -->
+    <div class="card">
+        <div class="card-header">Dettagli Workflow</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="id" class="form-label">ID Workflow</label>
+                <input type="text" class="form-control" id="id" name="id" value="{{ wf.id }}" required>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Trigger -->
+    <div class="card">
+        <div class="card-header">Trigger</div>
+        <div class="card-body" id="trigger-params">
+             {% for key, value in wf.trigger.items() %}
+             <div class="row align-items-center mb-2 param-row">
+                 <div class="col-5">
+                     <input type="text" class="form-control" name="trigger_param_key_{{ loop.index0 }}" placeholder="Nome Parametro" value="{{ key }}">
+                 </div>
+                 <div class="col-5">
+                     <input type="text" class="form-control" name="trigger_param_value_{{ loop.index0 }}" placeholder="Valore" value="{{ value }}">
+                 </div>
+                 <div class="col-2">
+                     <button type="button" class="btn btn-sm btn-danger" onclick="deleteParam(this)"><i class="bi bi-trash"></i></button>
+                 </div>
+             </div>
+             {% endfor %}
+        </div>
+        <div class="card-footer">
+            <button type="button" class="btn btn-sm btn-success" onclick="addParam('trigger-params', 'trigger')">
+                <i class="bi bi-plus-circle"></i> Aggiungi Parametro al Trigger
+            </button>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3>Azioni</h3>
+        <button type="button" class="btn btn-success" onclick="addAction()">
+            <i class="bi bi-plus-circle"></i> Aggiungi Azione
+        </button>
+    </div>
+    <div id="actions-container">
+        {% for action in wf.get('actions', []) %}
+        <div class="card action-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                Azione
+                <button type="button" class="btn-close" aria-label="Close" onclick="this.closest('.action-card').remove()"></button>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Tipo di Azione</label>
+                    <input type="text" class="form-control" name="action_{{ loop.index0 }}_type" value="{{ action.type }}" required>
+                </div>
+                <h6>Parametri</h6>
+                <div class="action-params">
+                {% for key, value in action.params.items() %}
+                    <div class="row align-items-center mb-2 param-row">
+                        <div class="col-5">
+                            <input type="text" class="form-control" name="action_{{ loop.parent.loop.index0 }}_param_key_{{ loop.index0 }}" placeholder="Nome Parametro" value="{{ key }}">
+                        </div>
+                        <div class="col-5">
+                            <input type="text" class="form-control" name="action_{{ loop.parent.loop.index0 }}_param_value_{{ loop.index0 }}" placeholder="Valore" value="{{ value }}">
+                        </div>
+                        <div class="col-2">
+                            <button type="button" class="btn btn-sm btn-danger" onclick="deleteParam(this)"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+                {% endfor %}
+                </div>
+                 <button type="button" class="btn btn-sm btn-outline-success mt-2" onclick="addParam(this.previousElementSibling, 'action', {{ loop.index0 }})">
+                    <i class="bi bi-plus-circle"></i> Aggiungi Parametro
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</form>
+
+<!-- Template per una nuova azione (nascosto) -->
+<template id="action-template">
+    <div class="card action-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            Nuova Azione
+            <button type="button" class="btn-close" aria-label="Close" onclick="this.closest('.action-card').remove()"></button>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">Tipo di Azione</label>
+                <input type="text" class="form-control" name="action_idx_type" placeholder="es. excel_append" required>
+            </div>
+            <h6>Parametri</h6>
+            <div class="action-params">
+                <!-- I parametri verranno aggiunti qui -->
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-success mt-2" onclick="addParam(this.previousElementSibling, 'action', 'idx')">
+                <i class="bi bi-plus-circle"></i> Aggiungi Parametro
+            </button>
+        </div>
+    </div>
+</template>
+
+<!-- Template per un nuovo parametro (nascosto) -->
+<template id="param-template">
+     <div class="row align-items-center mb-2 param-row">
+        <div class="col-5">
+            <input type="text" class="form-control" name="param_key_name" placeholder="Nome Parametro">
+        </div>
+        <div class="col-5">
+            <input type="text" class="form-control" name="param_value_name" placeholder="Valore">
+        </div>
+        <div class="col-2">
+            <button type="button" class="btn btn-sm btn-danger" onclick="deleteParam(this)"><i class="bi bi-trash"></i></button>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let actionCounter = {{ wf.get('actions', [])|length }};
+
+    function addAction() {
+        const template = document.getElementById('action-template');
+        const clone = template.content.cloneNode(true);
+        
+        // Aggiorna i nomi dei campi per essere unici
+        clone.querySelector('[name="action_idx_type"]').name = `action_${actionCounter}_type`;
+        const addParamBtn = clone.querySelector('button[onclick*="addParam"]');
+        addParamBtn.setAttribute('onclick', `addParam(this.previousElementSibling, 'action', ${actionCounter})`);
+        
+        document.getElementById('actions-container').appendChild(clone);
+        actionCounter++;
+    }
+
+    function addParam(container, prefix, actionIndex = null) {
+        if (typeof container === 'string') {
+            container = document.getElementById(container);
+        }
+        
+        const paramCount = container.querySelectorAll('.param-row').length;
+        const template = document.getElementById('param-template');
+        const clone = template.content.cloneNode(true);
+        
+        let keyName, valueName;
+        if (prefix === 'trigger') {
+            keyName = `trigger_param_key_${paramCount}`;
+            valueName = `trigger_param_value_${paramCount}`;
+        } else {
+            keyName = `action_${actionIndex}_param_key_${paramCount}`;
+            valueName = `action_${actionIndex}_param_value_${paramCount}`;
+        }
+        
+        clone.querySelector('[name="param_key_name"]').name = keyName;
+        clone.querySelector('[name="param_value_name"]').name = valueName;
+        
+        container.appendChild(clone);
+    }
+    
+    function deleteParam(btn) {
+        btn.closest('.param-row').remove();
+    }
+</script>
+{% endblock %}
