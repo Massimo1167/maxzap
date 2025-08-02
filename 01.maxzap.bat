@@ -20,7 +20,7 @@ REM python -m pyzap.cli run config.json --log-level DEBUG --step
 REM Individual components can be tested via pytest. For example:
 REM This isolates the Gmail polling logic using stubbed Google APIs.
 REM pytest tests/test_trigger.py::test_gmail_poll_success
-REM python -m pyzap.cli run config.json --log-level DEBUG --step
+REM python -m pyzap.cli config.json run --log-level DEBUG --step
 
 python -m pyzap.cli azienda.agricola-splitpdf.json run 
 
