@@ -92,10 +92,12 @@ that can be appended to a spreadsheet:
   `gmail_archive`.
 
 The resulting metadata dictionary can be passed to `sheets_append` or the new
-`excel_append` action which writes rows to a local `.xlsx` or `.xlsm` workbook. The
-`excel_append` action formats the `datetime` field as `DD/MM/YYYY HH:MM:SS`,
-joins attachment lists with a semicolon and supports a `max_message_length`
-parameter to truncate the message text.
+`excel_append` action which writes rows to a local `.xlsx` or `.xlsm` workbook.
+`excel_append` formats the `datetime` field as `DD/MM/YYYY HH:MM:SS`, joins
+attachment lists with a semicolon and supports a `max_message_length`
+parameter to truncate the message text. It now also accepts a `records` key
+containing a list of dictionaries with the same fields configured in
+`fields` allowing multiple rows to be appended in a single call.
 
 ## Logging
 
