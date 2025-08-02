@@ -16,10 +16,13 @@ from flask import (
     request,
     url_for,
 )
+from flask_wtf import CSRFProtect
 
 from .config import load_config, save_config
 
 app = Flask(__name__)
+app.secret_key = "dev-secret-key"
+csrf = CSRFProtect(app)
 CONFIG_PATH = "config.json"
 
 INDEX_TEMPLATE = """
@@ -45,6 +48,7 @@ EDIT_TEMPLATE = """
   <p style="color: red;">{{ error }}</p>
 {% endif %}
 <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label>ID<br><input name="id" value="{{ wf.id }}" required></label><br>
   <h2>Trigger</h2>
   <label>Tipo<br><input name="trigger_type" value="{{ wf.trigger.type }}" required></label><br>
@@ -135,6 +139,7 @@ def edit_workflow(index=None):
     )
 
 
+@csrf.exempt
 @app.route("/api/workflows", methods=["POST"])
 def create_workflow_api():
     """Legacy API endpoint used by tests or scripts."""
