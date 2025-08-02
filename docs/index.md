@@ -101,6 +101,10 @@ metadata into spreadsheet appenders:
 }
 ```
 
+The `excel_append` action also accepts a `records` key containing a list of
+objects with the same fields configured in `fields`, allowing multiple rows to
+be appended in one execution.
+
 `pdf_split` will use the `attachment_paths` field from `gmail_archive` when
 `pdf_path` is not provided.
 

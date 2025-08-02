@@ -648,6 +648,34 @@ def test_excel_append(monkeypatch, tmp_path):
     assert row == [1, 2]
 
 
+def test_excel_append_records(monkeypatch, tmp_path):
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module('openpyxl')
+    ExcelAppendAction = importlib.import_module('pyzap.plugins.excel_append').ExcelAppendAction
+
+    file_path = tmp_path / 'book.xlsx'
+    wb = openpyxl.Workbook()
+    wb.save(file_path)
+
+    save_calls = {}
+
+    orig_save = openpyxl.Workbook.save
+
+    def fake_save(self, path):
+        save_calls['count'] = save_calls.get('count', 0) + 1
+        return orig_save(self, path)
+
+    monkeypatch.setattr(openpyxl.Workbook, 'save', fake_save)
+
+    action = ExcelAppendAction({'file': str(file_path), 'fields': ['a', 'b']})
+    action.execute({'records': [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]})
+
+    wb2 = openpyxl.load_workbook(file_path)
+    assert wb2.active.rows == [[1, 2], [3, 4]]
+    assert save_calls['count'] == 1
+
+
 def test_excel_append_list_conversion(monkeypatch, tmp_path):
     """Lists should be converted to comma separated strings."""
     _setup_openpyxl(monkeypatch)
