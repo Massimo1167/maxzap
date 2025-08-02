@@ -37,7 +37,7 @@
           "params": {
                 "file": "../gmail/log.xlsm",
                 "sheet": "Archivio",
-                "fields": ["datetime", "sender", "subject", "storage_path"],
+                "fields": ["datetime", "sender", "subject", "attachments","storage_path"],
                 "max_message_length": 1000
                 }
         },
@@ -59,7 +59,7 @@
           "params": {
                 "file": "../fatture/fatture.xlsm",
                 "sheet": "Fatture",
-                "fields": ["records"],
+                "fields": ["documento_data","documento_numero","fornitore_denominazione","pagamento_modalita","pagamento_importo","pagamento_scadenza"],
                 "max_message_length": 1000
             }
         }
