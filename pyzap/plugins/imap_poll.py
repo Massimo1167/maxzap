@@ -22,6 +22,8 @@ class ImapPollTrigger(BaseTrigger):
         - ``port`` (optional): IMAP SSL port, defaults to ``993``.
         - ``mailbox`` (optional): mailbox to select, defaults to ``INBOX``.
         - ``search`` (optional): IMAP search query, defaults to ``UNSEEN``.
+        - ``max_results`` (optional): maximum number of messages to return,
+          defaults to ``100``.
         """
 
         host = self.config.get("host")
@@ -33,6 +35,10 @@ class ImapPollTrigger(BaseTrigger):
             port = int(self.config.get("port", 993))
         except Exception:
             port = 993
+        try:
+            max_results = int(self.config.get("max_results", 100))
+        except Exception:
+            max_results = 100
 
         logging.info(
             "Polling IMAP %s mailbox %s with search '%s'",
@@ -57,7 +63,7 @@ class ImapPollTrigger(BaseTrigger):
                     return []
                 logging.info("IMAP search returned %d messages", len(data[0].split()))
                 messages = []
-                for num in data[0].split():
+                for num in data[0].split()[:max_results]:
                     status, msg_data = client.fetch(num, "(RFC822)")
                     if status != "OK" or not msg_data:
                         continue
