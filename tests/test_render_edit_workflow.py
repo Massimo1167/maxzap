@@ -33,3 +33,20 @@ def test_edit_workflow_template_renders_action_params():
 
     assert 'name="action_0_param_key_0"' in html
     assert 'name="action_0_param_value_0"' in html
+
+
+def test_edit_workflow_template_renders_without_params():
+    """Template renders when actions have no params dictionary."""
+    cfg = {"admin_email": "", "smtp": {}}
+    workflow = {
+        "id": "wf1",
+        "trigger": {"type": "manual"},
+        "actions": [{"type": "email"}],
+    }
+
+    with app.test_request_context():
+        html = render_template(
+            "edit_workflow.html", cfg=cfg, wf=workflow, index=0, is_new=False
+        )
+
+    assert 'name="action_0_param_key_0"' not in html

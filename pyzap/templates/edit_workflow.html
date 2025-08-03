@@ -105,7 +105,7 @@
                 </div>
                 <h6>Parametri</h6>
                 <div class="action-params">
-                {% for key, value in action.params.items() %}
+                {% for key, value in (action.params|default({})).items() %}
                     <div class="row align-items-center mb-2 param-row">
                         <div class="col-5">
                             <input type="text" class="form-control" name="action_{{ action_index }}_param_key_{{ loop.index0 }}" placeholder="Nome Parametro" value="{{ key }}">
