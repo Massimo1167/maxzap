@@ -107,6 +107,12 @@ def _get_plugin_params(cls, *, is_trigger: bool):
             if p["name"] not in existing:
                 params.append(p)
                 existing.add(p["name"])
+    if not params:
+        for p in _extract_params(cls, is_trigger):
+            name = p["name"]
+            if name not in existing:
+                params.append({"name": name, "required": False})
+                existing.add(name)
     return params
 
 
