@@ -55,37 +55,109 @@
     <li class="list-group-item">
         <strong>gmail_poll</strong><br>
         <small>Poll Gmail using the Gmail API.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>token_file</code></li>
+
+            <li><code>query</code></li>
+
+            <li><code>max_results</code> (opzionale)</li>
+
+            <li><code>accounts</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>excel_poll</strong><br>
         <small>Poll an Excel workbook for newly appended rows.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>file</code></li>
+
+            <li><code>sheet</code> (opzionale)</li>
+
+            <li><code>state_file</code> (opzionale)</li>
+
+            <li><code>start_row</code> (opzionale)</li>
+
+            <li><code>filters</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>excel_attachment_row</strong><br>
         <small>Trigger on new rows where an attachment column contains data.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>file</code></li>
+
+            <li><code>sheet</code> (opzionale)</li>
+
+            <li><code>state_file</code> (opzionale)</li>
+
+            <li><code>start_row</code> (opzionale)</li>
+
+            <li><code>filters</code> (opzionale)</li>
+
+            <li><code>attachment_column</code></li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>excel_cell_change</strong><br>
         <small>Trigger when monitored cells change value.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>file</code></li>
+
+            <li><code>sheet</code> (opzionale)</li>
+
+            <li><code>state_file</code> (opzionale)</li>
+
+            <li><code>start_row</code> (opzionale)</li>
+
+            <li><code>columns</code></li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>excel_file_updated</strong><br>
         <small>Trigger when the Excel file modification time changes.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>file</code></li>
+
+            <li><code>state_file</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>excel_row_added</strong><br>
         <small>Detect new rows with optional advanced filtering.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>file</code></li>
+
+            <li><code>sheet</code> (opzionale)</li>
+
+            <li><code>state_file</code> (opzionale)</li>
+
+            <li><code>start_row</code> (opzionale)</li>
+
+            <li><code>filters</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
 </ul>
@@ -110,67 +182,200 @@
     <li class="list-group-item">
         <strong>imap_archive</strong><br>
         <small>Download an IMAP message and attachments and store them.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>host</code></li>
+
+            <li><code>username</code></li>
+
+            <li><code>password</code></li>
+
+            <li><code>port</code> (opzionale)</li>
+
+            <li><code>mailbox</code> (opzionale)</li>
+
+            <li><code>drive_folder_id</code> (opzionale)</li>
+
+            <li><code>local_dir</code> (opzionale)</li>
+
+            <li><code>token</code> (opzionale)</li>
+
+            <li><code>save_attachments</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>excel_append</strong><br>
         <small>Append data to an Excel workbook.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>file</code></li>
+
+            <li><code>sheet</code> (opzionale)</li>
+
+            <li><code>fields</code> (opzionale)</li>
+
+            <li><code>max_message_length</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>pdf_split</strong><br>
         <small>Split a PDF file into smaller PDFs.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>output_dir</code></li>
+
+            <li><code>pattern</code> (opzionale)</li>
+
+            <li><code>name_template</code> (opzionale)</li>
+
+            <li><code>regex_fields</code> (opzionale)</li>
+
+            <li><code>table_fields</code> (opzionale)</li>
+
+            <li><code>parse_invoice</code> (opzionale)</li>
+
+            <li><code>date_formats</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>slack_notify</strong><br>
         <small>Send a notification to Slack via webhook.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>webhook_url</code></li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>sheets_append</strong><br>
         <small>Append data to a Google Sheet.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>sheet_id</code></li>
+
+            <li><code>range</code></li>
+
+            <li><code>token</code> (opzionale)</li>
+
+            <li><code>fields</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>gmail_archive</strong><br>
         <small>Download a Gmail message and attachments and store them.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>token_file</code></li>
+
+            <li><code>drive_folder_id</code> (opzionale)</li>
+
+            <li><code>local_dir</code> (opzionale)</li>
+
+            <li><code>token</code> (opzionale)</li>
+
+            <li><code>save_message</code> (opzionale)</li>
+
+            <li><code>save_attachments</code> (opzionale)</li>
+
+            <li><code>download_links</code> (opzionale)</li>
+
+            <li><code>attachment_types</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>attachment_download</strong><br>
         <small>Download attachments referenced in a row.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>dest</code></li>
+
+            <li><code>rename</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>db_save</strong><br>
         <small>Save data into a SQLite database.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>db</code></li>
+
+            <li><code>table</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>email_send</strong><br>
         <small>Send an email using SMTP.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>host</code> (opzionale)</li>
+
+            <li><code>port</code> (opzionale)</li>
+
+            <li><code>username</code> (opzionale)</li>
+
+            <li><code>password</code> (opzionale)</li>
+
+            <li><code>from_addr</code></li>
+
+            <li><code>to_addr</code> (opzionale)</li>
+
+            <li><code>subject</code> (opzionale)</li>
+
+            <li><code>body</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>excel_write_row</strong><br>
         <small>Create or update rows in an Excel file.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>file</code></li>
+
+            <li><code>sheet</code> (opzionale)</li>
+
+            <li><code>row</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
     <li class="list-group-item">
         <strong>file_create</strong><br>
         <small>Create a file from row data.</small>
-        
+        <ul class="mt-2">
+
+            <li><code>path</code></li>
+
+            <li><code>format</code> (opzionale)</li>
+
+        </ul>
+
     </li>
 
 </ul>
