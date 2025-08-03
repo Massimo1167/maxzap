@@ -5,6 +5,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    session,
     url_for,
 )
 from flask_wtf import CSRFProtect
@@ -36,15 +37,24 @@ csrf = CSRFProtect(app)
 
 # Load available plugins at startup so TRIGGERS and ACTIONS are populated
 load_plugins()
-CONFIG_PATH = "azienda.agricola-splitpdf.json" # Usa il tuo file di config
+
+DEFAULT_CONFIG_PATH = "azienda.agricola-splitpdf.json"
+
+
+def get_config_path():
+    return session.get("config_path", DEFAULT_CONFIG_PATH)
+
+
+def set_config_path(path: str) -> None:
+    session["config_path"] = path
 
 def _get_workflows(cfg):
     """Estrae la lista di workflow dalla configurazione caricata."""
     return cfg.get("workflows", []) if isinstance(cfg, dict) else cfg
 
-def _save_config(cfg):
-    """Salva l'intera configurazione su CONFIG_PATH."""
-    save_config(CONFIG_PATH, cfg)
+def _save_config(cfg, path):
+    """Salva l'intera configurazione su ``path``."""
+    save_config(path, cfg)
 
 
 def _parse_param_doc(doc: str):
@@ -114,15 +124,55 @@ def help_plugins():
 
 @app.route("/")
 def index():
-    cfg = load_config(CONFIG_PATH)
+    cfg = load_config(get_config_path())
     workflows = _get_workflows(cfg)
     return render_template("index.html", cfg=cfg, workflows=workflows)
+
+
+@csrf.exempt
+@app.route("/config/upload", methods=["GET", "POST"])
+def upload_config():
+    if request.method == "POST":
+        file = request.files.get("config_file")
+        dest_path = request.form.get("dest_path")
+        if not file or not dest_path:
+            return render_template("upload_config.html", error="File o percorso mancante")
+        try:
+            data = json.load(file)
+        except json.JSONDecodeError:
+            return render_template("upload_config.html", error="Invalid JSON")
+        save_config(dest_path, data)
+        set_config_path(dest_path)
+        return redirect(url_for("index"))
+    return render_template("upload_config.html")
+
+
+@csrf.exempt
+@app.route("/config/save", methods=["POST"])
+def config_save():
+    if request.is_json:
+        payload = request.get_json()
+        cfg = payload.get("config", {})
+        new_path = payload.get("new_path")
+    else:
+        cfg_str = request.form.get("config", "{}")
+        new_path = request.form.get("new_path")
+        try:
+            cfg = json.loads(cfg_str)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid JSON"}), 400
+    path = new_path or get_config_path()
+    _save_config(cfg, path)
+    if new_path:
+        set_config_path(path)
+    return jsonify({"status": "ok", "path": path})
 
 
 @app.route("/workflow/new", methods=["GET", "POST"])
 @app.route("/workflow/<int:index>", methods=["GET", "POST"])
 def edit_workflow(index=None):
-    cfg = load_config(CONFIG_PATH)
+    path = get_config_path()
+    cfg = load_config(path)
     workflows = _get_workflows(cfg)
     is_new = index is None or index >= len(workflows)
 
@@ -226,11 +276,14 @@ def edit_workflow(index=None):
         else:
             workflows.append(wf)
 
+        save_path = request.form.get("new_path") or path
         if isinstance(cfg, dict):
             cfg['workflows'] = workflows
-            _save_config(cfg)
+            _save_config(cfg, save_path)
         else:
-            _save_config(workflows)
+            _save_config(workflows, save_path)
+        if request.form.get("new_path"):
+            set_config_path(save_path)
         return redirect(url_for("index"))
 
     # Metodo GET
@@ -250,7 +303,8 @@ def edit_workflow(index=None):
 
 @app.route("/workflow/<int:wf>/trigger", methods=["GET", "POST"])
 def edit_trigger_route(wf):
-    cfg = load_config(CONFIG_PATH)
+    path = get_config_path()
+    cfg = load_config(path)
     workflows = _get_workflows(cfg)
     if wf >= len(workflows):
         return redirect(url_for("edit_workflow", index=wf))
@@ -267,9 +321,9 @@ def edit_trigger_route(wf):
         workflows[wf]["trigger"] = trigger
         if isinstance(cfg, dict):
             cfg["workflows"] = workflows
-            _save_config(cfg)
+            _save_config(cfg, path)
         else:
-            _save_config(workflows)
+            _save_config(workflows, path)
         return redirect(url_for("edit_workflow", index=wf))
 
     trigger_cfg = workflows[wf].get("trigger", {})
@@ -292,7 +346,8 @@ def edit_trigger_route(wf):
 
 @app.route("/workflow/<int:wf>/action/<int:idx>", methods=["GET", "POST"])
 def edit_action_route(wf, idx):
-    cfg = load_config(CONFIG_PATH)
+    path = get_config_path()
+    cfg = load_config(path)
     workflows = _get_workflows(cfg)
     if wf >= len(workflows) or idx >= len(workflows[wf].get("actions", [])):
         return redirect(url_for("edit_workflow", index=wf))
@@ -309,9 +364,9 @@ def edit_action_route(wf, idx):
         workflows[wf]["actions"][idx] = action
         if isinstance(cfg, dict):
             cfg["workflows"] = workflows
-            _save_config(cfg)
+            _save_config(cfg, path)
         else:
-            _save_config(workflows)
+            _save_config(workflows, path)
         return redirect(url_for("edit_workflow", index=wf))
 
     action_cfg = workflows[wf]["actions"][idx]
@@ -338,14 +393,15 @@ def edit_action_route(wf, idx):
 def create_workflow_api():
     """Endpoint API legacy per test o script."""
     data = request.get_json()
-    cfg = load_config(CONFIG_PATH)
+    path = get_config_path()
+    cfg = load_config(path)
     workflows = _get_workflows(cfg)
     workflows.append(data)
     if isinstance(cfg, dict):
         cfg['workflows'] = workflows
-        _save_config(cfg)
+        _save_config(cfg, path)
     else:
-        _save_config(workflows)
+        _save_config(workflows, path)
     return jsonify({"status": "ok"})
 
 

@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% block title %}Carica Configurazione{% endblock %}
+
+{% block content %}
+<h2>Carica file di configurazione</h2>
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+<form method="post" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label for="config_file" class="form-label">File JSON</label>
+    <input class="form-control" type="file" id="config_file" name="config_file" accept="application/json" required>
+  </div>
+  <div class="mb-3">
+    <label for="dest_path" class="form-label">Percorso di destinazione</label>
+    <input class="form-control" type="text" id="dest_path" name="dest_path" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Carica</button>
+</form>
+{% endblock %}

@@ -91,6 +91,15 @@
     <input type="hidden" name="actions" id="actions-input" value='{{ wf.get("actions", [])|tojson }}'>
 </form>
 
+<form action="{{ url_for('config_save') }}" method="post" class="mt-3">
+    <input type="hidden" name="config" value='{{ cfg|tojson }}'>
+    <div class="input-group">
+        <span class="input-group-text">Salva come...</span>
+        <input type="text" class="form-control" name="new_path" placeholder="Percorso file">
+        <button class="btn btn-secondary" type="submit">Salva</button>
+    </div>
+</form>
+
 {% endblock %}
 
 {% block scripts %}
