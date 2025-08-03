@@ -11,12 +11,8 @@ if str(ROOT) not in sys.path:
 from pyzap.webapp import app
 
 
-def test_edit_workflow_template_renders_action_params():
-    """Render the edit_workflow template with a sample workflow.
-
-    Ensures that the template renders without raising errors and that
-    parameter fields for actions are named correctly.
-    """
+def test_edit_workflow_template_contains_action_json():
+    """Template embeds action data as JSON for client-side rendering."""
     cfg = {"admin_email": "", "smtp": {}}
     workflow = {
         "id": "wf1",
@@ -31,8 +27,8 @@ def test_edit_workflow_template_renders_action_params():
             "edit_workflow.html", cfg=cfg, wf=workflow, index=0, is_new=False
         )
 
-    assert 'name="action_0_param_key_0"' in html
-    assert 'name="action_0_param_value_0"' in html
+    assert 'id="actions-input"' in html
+    assert 'subject' in html
 
 
 def test_edit_workflow_template_renders_without_params():

@@ -37,9 +37,7 @@ def test_create_workflow_via_form(tmp_path, monkeypatch):
         "/workflow/new",
         data={
             "id": "wf1",
-            "trigger_type": "manual",
-            "trigger_query": "",
-            "trigger_token_file": "",
+            "trigger": json.dumps({"type": "manual", "query": "", "token_file": ""}),
             "actions": "[]",
             "csrf_token": token,
         },
@@ -62,9 +60,7 @@ def test_invalid_json_actions(tmp_path, monkeypatch):
         "/workflow/new",
         data={
             "id": "wf1",
-            "trigger_type": "manual",
-            "trigger_query": "",
-            "trigger_token_file": "",
+            "trigger": json.dumps({"type": "manual", "query": "", "token_file": ""}),
             "actions": "[invalid",
             "csrf_token": token,
         },
@@ -121,9 +117,7 @@ def test_edit_workflow_via_form(tmp_path, monkeypatch):
         "/workflow/0",
         data={
             "id": "wf1_mod",
-            "trigger_type": "manual",
-            "trigger_query": "new-query",
-            "trigger_token_file": "token.json",
+            "trigger": json.dumps({"type": "manual", "query": "new-query", "token_file": "token.json"}),
             "actions": "[]",
             "csrf_token": token,
         },
