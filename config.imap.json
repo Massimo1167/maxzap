@@ -1,0 +1,40 @@
+{
+  "workflows": [
+    {
+      "id": "aruba-imap",
+      "trigger": {
+        "type": "imap_poll",
+        "host": "in.postassl.it",
+        "port": 995,
+        "username": "nomecasella@nomedominio.it",
+        "password": "la password legata alla casella"
+      },
+      "actions": [
+        {
+          "type": "imap_archive",
+          "params": {
+            "host": "in.postassl.it",
+            "port": 995,
+            "username": "nomecasella@nomedominio.it",
+            "password": "la password legata alla casella",
+            "local_dir": "./email_attachments"
+          }
+        },
+        {
+          "type": "excel_append",
+          "params": {
+            "file": "./emails.xlsx",
+            "fields": [
+              "datetime",
+              "sender",
+              "subject",
+              "summary",
+              "attachments",
+              "storage_path"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -68,7 +68,8 @@ Two built-in triggers allow fetching messages from email servers:
   `accounts` list where each entry contains its own `token_file` and `query`.
 * `imap_poll` &ndash; connects to any IMAP server using username and password.
   Required options are `host`, `username` and `password`. Optional keys are
-  `mailbox` (defaults to `INBOX`) and `search` (defaults to `UNSEEN`).
+  `port` (defaults to `993`), `mailbox` (defaults to `INBOX`) and `search`
+  (defaults to `UNSEEN`).
 
 ## Archive and spreadsheet actions
 
@@ -89,7 +90,7 @@ that can be appended to a spreadsheet:
   action also returns `attachment_paths` with their full paths.
 * `imap_archive` &ndash; similar functionality for standard IMAP servers. It
   requires `host`, `username` and `password` and the same destination options as
-  `gmail_archive`.
+  `gmail_archive`. An optional `port` (defaults to `993`) can be provided.
 
 The resulting metadata dictionary can be passed to `sheets_append` or the new
 `excel_append` action which writes rows to a local `.xlsx` or `.xlsm` workbook.

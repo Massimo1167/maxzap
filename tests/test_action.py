@@ -560,9 +560,11 @@ def test_gmail_archive_html_link_header(monkeypatch, tmp_path):
 def test_imap_archive(monkeypatch, tmp_path):
     from pyzap.plugins.imap_archive import ImapArchiveAction
 
+    captured = {}
+
     class DummyIMAP:
-        def __init__(self, host):
-            pass
+        def __init__(self, host, port):
+            captured["port"] = port
 
         def login(self, u, p):
             pass
@@ -587,20 +589,23 @@ def test_imap_archive(monkeypatch, tmp_path):
         def __exit__(self, exc_type, exc, tb):
             pass
 
-    monkeypatch.setattr(imaplib, 'IMAP4_SSL', lambda host: DummyIMAP(host))
-    action = ImapArchiveAction({'host': 'h', 'username': 'u', 'password': 'p', 'local_dir': str(tmp_path)})
+    monkeypatch.setattr(imaplib, 'IMAP4_SSL', lambda host, port=993: DummyIMAP(host, port))
+    action = ImapArchiveAction({'host': 'h', 'username': 'u', 'password': 'p', 'local_dir': str(tmp_path), 'port': 123})
     result = action.execute({'id': '1'})
     folder = tmp_path / '1'
     assert (folder / 'att.txt').exists()
     assert result['subject'] == 's'
+    assert captured['port'] == 123
 
 
 def test_imap_archive_skip_attachments(monkeypatch, tmp_path):
     from pyzap.plugins.imap_archive import ImapArchiveAction
 
+    captured = {}
+
     class DummyIMAP:
-        def __init__(self, host):
-            pass
+        def __init__(self, host, port):
+            captured['port'] = port
 
         def login(self, u, p):
             pass
@@ -625,12 +630,13 @@ def test_imap_archive_skip_attachments(monkeypatch, tmp_path):
         def __exit__(self, exc_type, exc, tb):
             pass
 
-    monkeypatch.setattr(imaplib, 'IMAP4_SSL', lambda host: DummyIMAP(host))
-    action = ImapArchiveAction({'host': 'h', 'username': 'u', 'password': 'p', 'local_dir': str(tmp_path), 'save_attachments': False})
+    monkeypatch.setattr(imaplib, 'IMAP4_SSL', lambda host, port=993: DummyIMAP(host, port))
+    action = ImapArchiveAction({'host': 'h', 'username': 'u', 'password': 'p', 'local_dir': str(tmp_path), 'save_attachments': False, 'port': 321})
     result = action.execute({'id': '1'})
     folder = tmp_path / '1'
     assert not (folder / 'att.txt').exists()
     assert result['attachments'] == []
+    assert captured['port'] == 321
 
 
 def test_excel_append(monkeypatch, tmp_path):
