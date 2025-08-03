@@ -22,7 +22,8 @@ REM This isolates the Gmail polling logic using stubbed Google APIs.
 REM pytest tests/test_trigger.py::test_gmail_poll_success
 REM python -m pyzap.cli config.json run --log-level DEBUG --step
 
-python -m pyzap.cli azienda.agricola-splitpdf.json run 
+REM python -m pyzap.cli azienda.agricola-splitpdf.json run 
+python -m pyzap.cli config.imap.json run 
 
 REM -- 4. Mantieni aperta la finestra per leggere eventuali messaggi
 echo.
