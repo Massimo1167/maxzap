@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block title %}Modifica Azione{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{{ url_for('edit_workflow', index=wf_index) }}">Workflow</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Azione</li>
+  </ol>
+</nav>
+<form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-3">
+        <label class="form-label">Tipo Azione</label>
+        <select class="form-select" name="action_type" onchange="window.location='?action_type='+this.value">
+            {% for name in actions.keys() %}
+            <option value="{{ name }}" {% if action_type == name %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <h5>Parametri</h5>
+    {% for p in params %}
+    <div class="mb-3">
+        <label class="form-label">{{ p.name }}</label>
+        <input type="text" class="form-control" name="{{ p.name }}" value="{{ values.get(p.name, '') }}" {% if p.required %}required{% endif %}>
+    </div>
+    {% endfor %}
+    <div class="mt-3">
+        <a href="{{ url_for('edit_workflow', index=wf_index) }}" class="btn btn-secondary">Torna al workflow</a>
+        <button type="submit" class="btn btn-primary">Salva</button>
+    </div>
+</form>
+{% endblock %}

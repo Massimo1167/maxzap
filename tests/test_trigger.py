@@ -184,9 +184,12 @@ def test_gmail_poll_multiple(monkeypatch):
 def test_imap_poll(monkeypatch):
     from pyzap.plugins.imap_poll import ImapPollTrigger
 
+    captured = {}
+
     class DummyIMAP:
-        def __init__(self, host):
+        def __init__(self, host, port):
             self.host = host
+            captured["port"] = port
 
         def login(self, user, pwd):
             pass
@@ -206,10 +209,11 @@ def test_imap_poll(monkeypatch):
         def __exit__(self, exc_type, exc, tb):
             pass
 
-    monkeypatch.setattr(imaplib, "IMAP4_SSL", lambda host: DummyIMAP(host))
-    trigger = ImapPollTrigger({"host": "h", "username": "u", "password": "p"})
+    monkeypatch.setattr(imaplib, "IMAP4_SSL", lambda host, port=993: DummyIMAP(host, port))
+    trigger = ImapPollTrigger({"host": "h", "username": "u", "password": "p", "port": 123})
     msgs = trigger.poll()
     assert [m["id"] for m in msgs] == ["1", "2"]
+    assert captured["port"] == 123
 
 
 def test_imap_poll_missing_config():

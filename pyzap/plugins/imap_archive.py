@@ -15,8 +15,16 @@ from .gdrive_upload import GDriveUploadAction
 class ImapArchiveAction(BaseAction):
     """Download an IMAP message and attachments and store them."""
 
-    def _fetch_message(self, msg_id: str, host: str, username: str, password: str, mailbox: str) -> email.message.EmailMessage:
-        with imaplib.IMAP4_SSL(host) as client:
+    def _fetch_message(
+        self,
+        msg_id: str,
+        host: str,
+        username: str,
+        password: str,
+        mailbox: str,
+        port: int,
+    ) -> email.message.EmailMessage:
+        with imaplib.IMAP4_SSL(host, port) as client:
             client.login(username, password)
             client.select(mailbox)
             status, data = client.fetch(msg_id, "(RFC822)")
@@ -29,6 +37,10 @@ class ImapArchiveAction(BaseAction):
         username = self.params.get("username")
         password = self.params.get("password")
         mailbox = self.params.get("mailbox", "INBOX")
+        try:
+            port = int(self.params.get("port", 993))
+        except Exception:
+            port = 993
         drive_parent = self.params.get("drive_folder_id")
         local_dir = self.params.get("local_dir")
         token = self.params.get("token") or os.environ.get("GDRIVE_TOKEN")
@@ -41,7 +53,7 @@ class ImapArchiveAction(BaseAction):
         if not local_dir and not drive_parent:
             raise ValueError("Either local_dir or drive_folder_id must be set")
 
-        msg = self._fetch_message(msg_id, host, username, password, mailbox)
+        msg = self._fetch_message(msg_id, host, username, password, mailbox, port)
         sender = msg.get("From", "")
         subject = msg.get("Subject", "")
         date = msg.get("Date", "")
