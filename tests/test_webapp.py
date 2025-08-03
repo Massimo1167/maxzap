@@ -137,10 +137,11 @@ def test_edit_workflow_via_form(tmp_path):
     assert wf["trigger"]["token_file"] == "token.json"
 
 
-def test_upload_config(tmp_path):
+def test_upload_config(tmp_path, monkeypatch):
     cfg_path = tmp_path / "uploaded.json"
+    # Imposta il percorso di destinazione tramite il valore di default
+    monkeypatch.setattr("pyzap.webapp.DEFAULT_CONFIG_PATH", str(cfg_path))
     client = app.test_client()
-    _set_config_path(client, str(cfg_path))
     data = BytesIO(json.dumps({"workflows": []}).encode("utf-8"))
     resp = client.post(
         "/config/upload",
