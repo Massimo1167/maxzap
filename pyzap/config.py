@@ -55,7 +55,10 @@ def _substitute_env_vars(data: Any) -> Any:
 def load_config(path: str) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
     """Load configuration from JSON file with environment variable substitution."""
     with open(path, "r", encoding="utf-8") as fh:
-        raw_config = json.load(fh)
+        try:
+            raw_config = json.load(fh)
+        except json.JSONDecodeError as err:
+            raise SystemExit(f"Invalid JSON in {path}: {err}") from err
     cleaned = _strip_comments(raw_config)
     return _substitute_env_vars(cleaned)
 

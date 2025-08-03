@@ -2,6 +2,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -35,3 +37,13 @@ def test_load_config_env_vars_and_comments(monkeypatch, tmp_path):
     path.write_text(json.dumps(data))
     cfg = load_config(str(path))
     assert cfg == {"num": "42"}
+
+
+def test_load_config_invalid_json(tmp_path):
+    path = tmp_path / "bad.json"
+    path.write_text("{bad json")
+
+    with pytest.raises(SystemExit) as excinfo:
+        load_config(str(path))
+
+    assert str(excinfo.value).startswith(f"Invalid JSON in {path}:")
