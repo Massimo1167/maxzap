@@ -19,6 +19,7 @@ class ImapPollTrigger(BaseTrigger):
         Expected configuration keys:
         - ``host``: IMAP server hostname.
         - ``username`` and ``password``: login credentials.
+        - ``port`` (optional): IMAP SSL port, defaults to ``993``.
         - ``mailbox`` (optional): mailbox to select, defaults to ``INBOX``.
         - ``search`` (optional): IMAP search query, defaults to ``UNSEEN``.
         """
@@ -28,6 +29,10 @@ class ImapPollTrigger(BaseTrigger):
         password = self.config.get("password")
         mailbox = self.config.get("mailbox", "INBOX")
         search = self.config.get("search", "UNSEEN")
+        try:
+            port = int(self.config.get("port", 993))
+        except Exception:
+            port = 993
 
         logging.info(
             "Polling IMAP %s mailbox %s with search '%s'",
@@ -41,7 +46,7 @@ class ImapPollTrigger(BaseTrigger):
             return []
 
         try:
-            with imaplib.IMAP4_SSL(host) as client:
+            with imaplib.IMAP4_SSL(host, port) as client:
                 client.login(username, password)
 
                 logging.info("Logged in to %s as %s", host, username)

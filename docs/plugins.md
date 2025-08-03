@@ -41,6 +41,7 @@ This page lists all available triggers and actions provided by PyZap.
   - `host`: IMAP server hostname.
   - `username`: Login username.
   - `password`: Login password.
+  - `port` (optional): IMAP SSL port, defaults to `993`.
   - `mailbox` (optional): Mailbox to select, defaults to `INBOX`.
   - `search` (optional): IMAP search query, defaults to `UNSEEN`.
 
@@ -89,6 +90,7 @@ This page lists all available triggers and actions provided by PyZap.
   - `host`: IMAP server hostname.
   - `username`: Login username.
   - `password`: Login password.
+  - `port` (optional): IMAP SSL port, defaults to `993`.
   - `mailbox` (optional): Mailbox to select, defaults to `INBOX`.
   - `drive_folder_id` (optional): Drive folder ID for storage.
   - `local_dir` (optional): Local directory for storage.
