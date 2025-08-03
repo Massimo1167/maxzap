@@ -77,8 +77,9 @@ Two built-in triggers allow fetching messages from email servers:
   `accounts` list where each entry contains its own `token_file` and `query`.
 * `imap_poll` &ndash; connects to any IMAP server using username and password.
   Required options are `host`, `username` and `password`. Optional keys are
-  `port` (defaults to `993`), `mailbox` (defaults to `INBOX`) and `search`
-  (defaults to `UNSEEN`).
+  `port` (defaults to `993`), `mailbox` (defaults to `INBOX`), `search`
+  (defaults to `UNSEEN`) and `max_results` to limit how many messages are
+  fetched (defaults to `100`).
 
 ## Archive and spreadsheet actions
 
