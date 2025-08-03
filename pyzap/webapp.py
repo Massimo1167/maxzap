@@ -1,6 +1,7 @@
 import json
 import inspect
 import re
+
 from flask import (
     Flask,
     jsonify,
@@ -11,12 +12,8 @@ from flask import (
     url_for,
 )
 from flask_wtf import CSRFProtect
-from .core import ACTIONS, TRIGGERS, BaseAction, BaseTrigger, load_plugins
 
-from . import core
-from .core import load_plugins, TRIGGERS, ACTIONS
-import inspect
-import re
+from .core import ACTIONS, TRIGGERS, load_plugins
 
 # Assumendo che queste funzioni esistano nel tuo progetto
 # Se non esistono, puoi sostituirle con semplici open/read/write
