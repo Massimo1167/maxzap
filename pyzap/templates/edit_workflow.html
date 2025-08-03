@@ -29,19 +29,19 @@
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label for="smtp_host" class="form-label">Host SMTP</label>
-                    <input type="text" class="form-control" id="smtp_host" name="smtp_host" value="{{ cfg.smtp.host or '' }}">
+                    <input type="text" class="form-control" id="smtp_host" name="smtp_host" value="{{ cfg.get('smtp', {}).get('host', '') }}">
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="smtp_port" class="form-label">Porta SMTP</label>
-                    <input type="number" class="form-control" id="smtp_port" name="smtp_port" value="{{ cfg.smtp.port or '' }}">
+                    <input type="number" class="form-control" id="smtp_port" name="smtp_port" value="{{ cfg.get('smtp', {}).get('port', '') }}">
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="smtp_username" class="form-label">Username SMTP</label>
-                    <input type="text" class="form-control" id="smtp_username" name="smtp_username" value="{{ cfg.smtp.username or '' }}">
+                    <input type="text" class="form-control" id="smtp_username" name="smtp_username" value="{{ cfg.get('smtp', {}).get('username', '') }}">
                 </div>
                  <div class="col-md-6 mb-3">
                     <label for="smtp_password" class="form-label">Password SMTP</label>
-                    <input type="password" class="form-control" id="smtp_password" name="smtp_password" value="{{ cfg.smtp.password or '' }}">
+                    <input type="password" class="form-control" id="smtp_password" name="smtp_password" value="{{ cfg.get('smtp', {}).get('password', '') }}">
                 </div>
             </div>
         </div>
@@ -92,6 +92,7 @@
     </div>
     <div id="actions-container">
         {% for action in wf.get('actions', []) %}
+        {% set action_index = loop.index0 %}
         <div class="card action-card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 Azione
@@ -107,10 +108,10 @@
                 {% for key, value in action.params.items() %}
                     <div class="row align-items-center mb-2 param-row">
                         <div class="col-5">
-                            <input type="text" class="form-control" name="action_{{ loop.parent.loop.index0 }}_param_key_{{ loop.index0 }}" placeholder="Nome Parametro" value="{{ key }}">
+                            <input type="text" class="form-control" name="action_{{ action_index }}_param_key_{{ loop.index0 }}" placeholder="Nome Parametro" value="{{ key }}">
                         </div>
                         <div class="col-5">
-                            <input type="text" class="form-control" name="action_{{ loop.parent.loop.index0 }}_param_value_{{ loop.index0 }}" placeholder="Valore" value="{{ value }}">
+                            <input type="text" class="form-control" name="action_{{ action_index }}_param_value_{{ loop.index0 }}" placeholder="Valore" value="{{ value }}">
                         </div>
                         <div class="col-2">
                             <button type="button" class="btn btn-sm btn-danger" onclick="deleteParam(this)"><i class="bi bi-trash"></i></button>
@@ -118,7 +119,7 @@
                     </div>
                 {% endfor %}
                 </div>
-                 <button type="button" class="btn btn-sm btn-outline-success mt-2" onclick="addParam(this.previousElementSibling, 'action', {{ loop.index0 }})">
+                 <button type="button" class="btn btn-sm btn-outline-success mt-2" onclick="addParam(this.previousElementSibling, 'action', {{ action_index }})">
                     <i class="bi bi-plus-circle"></i> Aggiungi Parametro
                 </button>
             </div>
