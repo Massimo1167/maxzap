@@ -180,6 +180,73 @@ def edit_workflow(index=None):
     )
 
 
+@app.route("/workflow/<int:wf>/trigger", methods=["GET", "POST"])
+def edit_trigger_route(wf):
+    cfg = load_config(CONFIG_PATH)
+    workflows = _get_workflows(cfg)
+    if wf >= len(workflows):
+        return redirect(url_for("edit_workflow", index=wf))
+
+    if request.method == "POST":
+        trigger = {"type": request.form.get("trigger_type")}
+        param_keys = [k for k in request.form if k.startswith("param_key_")]
+        for key_field in param_keys:
+            idx = key_field.rpartition("_")[-1]
+            key = request.form.get(f"param_key_{idx}")
+            value = request.form.get(f"param_value_{idx}")
+            if key:
+                trigger[key] = value
+        workflows[wf]["trigger"] = trigger
+        if isinstance(cfg, dict):
+            cfg["workflows"] = workflows
+            _save_config(cfg)
+        else:
+            _save_config(workflows)
+        return redirect(url_for("edit_workflow", index=wf))
+
+    trigger = workflows[wf].get("trigger", {})
+    return render_template(
+        "edit_trigger.html",
+        wf_index=wf,
+        trigger=trigger,
+        triggers=TRIGGERS,
+    )
+
+
+@app.route("/workflow/<int:wf>/action/<int:idx>", methods=["GET", "POST"])
+def edit_action_route(wf, idx):
+    cfg = load_config(CONFIG_PATH)
+    workflows = _get_workflows(cfg)
+    if wf >= len(workflows) or idx >= len(workflows[wf].get("actions", [])):
+        return redirect(url_for("edit_workflow", index=wf))
+
+    if request.method == "POST":
+        action = {"type": request.form.get("action_type"), "params": {}}
+        param_keys = [k for k in request.form if k.startswith("param_key_")]
+        for key_field in param_keys:
+            pidx = key_field.rpartition("_")[-1]
+            key = request.form.get(f"param_key_{pidx}")
+            value = request.form.get(f"param_value_{pidx}")
+            if key:
+                action["params"][key] = value
+        workflows[wf]["actions"][idx] = action
+        if isinstance(cfg, dict):
+            cfg["workflows"] = workflows
+            _save_config(cfg)
+        else:
+            _save_config(workflows)
+        return redirect(url_for("edit_workflow", index=wf))
+
+    action = workflows[wf]["actions"][idx]
+    return render_template(
+        "edit_action.html",
+        wf_index=wf,
+        idx=idx,
+        action=action,
+        actions=ACTIONS,
+    )
+
+
 @csrf.exempt
 @app.route("/api/workflows", methods=["POST"])
 def create_workflow_api():
