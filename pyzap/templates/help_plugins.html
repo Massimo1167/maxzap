@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block title %}Plugins{% endblock %}
+
+{% block content %}
+<h2>Trigger</h2>
+{% for trig in triggers %}
+<div class="card">
+  <div class="card-header">{{ trig.name }}</div>
+  <div class="card-body">
+    {% if trig.params %}
+    <ul class="mb-0">
+      {% for p in trig.params %}
+      <li><code>{{ p.name }}</code>{% if p.desc %}: {{ p.desc }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="mb-0 text-muted">Nessun parametro.</p>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+
+<h2 class="mt-4">Azioni</h2>
+{% for act in actions %}
+<div class="card">
+  <div class="card-header">{{ act.name }}</div>
+  <div class="card-body">
+    {% if act.params %}
+    <ul class="mb-0">
+      {% for p in act.params %}
+      <li><code>{{ p.name }}</code>{% if p.desc %}: {{ p.desc }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="mb-0 text-muted">Nessun parametro.</p>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

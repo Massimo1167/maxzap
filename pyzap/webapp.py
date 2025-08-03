@@ -1,4 +1,6 @@
 import json
+import inspect
+import re
 from flask import (
     Flask,
     jsonify,
@@ -8,6 +10,7 @@ from flask import (
     url_for,
 )
 from flask_wtf import CSRFProtect
+from .core import ACTIONS, TRIGGERS, BaseAction, BaseTrigger, load_plugins
 
 # Assumendo che queste funzioni esistano nel tuo progetto
 # Se non esistono, puoi sostituirle con semplici open/read/write
@@ -39,6 +42,46 @@ def _save_config(cfg):
     save_config(CONFIG_PATH, cfg)
 
 
+def _extract_params(cls, is_trigger):
+    """Return list of {'name':..., 'desc':...} for plugin class."""
+    doc = inspect.getdoc(cls.poll if is_trigger else cls.execute) or inspect.getdoc(cls) or ""
+    params = []
+    lines = doc.splitlines()
+    pattern = re.compile(r"- ``([^`]+)``: (.*)")
+    i = 0
+    while i < len(lines):
+        match = pattern.match(lines[i].strip())
+        if match:
+            name = match.group(1)
+            desc = match.group(2).strip()
+            i += 1
+            while i < len(lines) and lines[i].startswith(" "):
+                desc += " " + lines[i].strip()
+                i += 1
+            params.append({"name": name, "desc": desc})
+        else:
+            i += 1
+    if not params:
+        source = inspect.getsource(cls)
+        matches = re.findall(r"self\.(?:config|params)\.get\(\"([^\"]+)\"", source)
+        params = [{"name": p, "desc": ""} for p in sorted(set(matches))]
+    return params
+
+
+def get_plugins_info():
+    """Return metadata for all loaded trigger and action plugins."""
+    load_plugins()
+    triggers = [
+        {"name": name, "params": _extract_params(cls, True)}
+        for name, cls in sorted(TRIGGERS.items())
+    ]
+    actions = [
+        {"name": name, "params": _extract_params(cls, False)}
+        for name, cls in sorted(ACTIONS.items())
+    ]
+    return {"triggers": triggers, "actions": actions}
+
+
 @app.route("/")
 def index():
     cfg = load_config(CONFIG_PATH)
@@ -53,6 +96,32 @@ def edit_workflow(index=None):
     workflows = _get_workflows(cfg)
 
     if request.method == "POST":
+        # Support legacy simple form used in tests
+        if "trigger_type" in request.form:
+            try:
+                actions = json.loads(request.form.get("actions", "[]"))
+            except json.JSONDecodeError:
+                return "Invalid JSON"
+
+            wf = {
+                "id": request.form.get("id"),
+                "trigger": {
+                    "type": request.form.get("trigger_type"),
+                    "query": request.form.get("trigger_query"),
+                    "token_file": request.form.get("trigger_token_file"),
+                },
+                "actions": actions,
+            }
+
+            if index is None:
+                workflows.append(wf)
+            else:
+                workflows[index] = wf
+
+            cfg['workflows'] = workflows
+            _save_config(cfg)
+            return redirect(url_for("index"))
+
         # Ricostruisci le impostazioni globali
         cfg['admin_email'] = request.form.get('admin_email', '')
         if 'smtp' not in cfg:
@@ -77,7 +146,7 @@ def edit_workflow(index=None):
             value = request.form[f'trigger_param_value_{idx}']
             if key:
                 wf['trigger'][key] = value
-        
+
         # Converte valori numerici dove possibile
         if wf['trigger'].get('max_results'):
             wf['trigger']['max_results'] = int(wf['trigger']['max_results'])
@@ -90,7 +159,7 @@ def edit_workflow(index=None):
             action_type = request.form.get(f'action_{i}_type')
             if not action_type:
                 continue
-            
+
             action = {"type": action_type, "params": {}}
             param_keys = [k for k in request.form if k.startswith(f'action_{i}_param_key_')]
 
@@ -106,14 +175,14 @@ def edit_workflow(index=None):
                         action['params'][key] = False
                     else:
                         action['params'][key] = value
-            
+
             wf['actions'].append(action)
 
         if index is None:
             workflows.append(wf)
         else:
             workflows[index] = wf
-        
+
         cfg['workflows'] = workflows
         _save_config(cfg)
         return redirect(url_for("index"))
@@ -137,9 +206,18 @@ def create_workflow_api():
     cfg = load_config(CONFIG_PATH)
     workflows = _get_workflows(cfg)
     workflows.append(data)
-    cfg['workflows'] = workflows
+    if isinstance(cfg, dict):
+        cfg['workflows'] = workflows
+    else:
+        cfg = workflows
     _save_config(cfg)
     return jsonify({"status": "ok"})
+
+
+@app.route("/help/plugins")
+def help_plugins():
+    info = get_plugins_info()
+    return render_template("help_plugins.html", **info)
 
 
 if __name__ == "__main__":
