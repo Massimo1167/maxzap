@@ -130,3 +130,10 @@ def test_edit_workflow_via_form(tmp_path, monkeypatch):
     assert wf["id"] == "wf1_mod"
     assert wf["trigger"]["query"] == "new-query"
     assert wf["trigger"]["token_file"] == "token.json"
+
+
+def test_help_plugins_route():
+    client = app.test_client()
+    resp = client.get("/help/plugins")
+    assert resp.status_code == 200
+    assert b"Trigger Disponibili" in resp.data
