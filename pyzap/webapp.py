@@ -110,19 +110,9 @@ def _get_plugin_params(cls, *, is_trigger: bool):
     return params
 
 
-def get_plugins_help():
-    """Collect plugin names and their docstrings for triggers and actions."""
-    plugins = {"triggers": [], "actions": []}
-    for name, cls in TRIGGERS.items():
-        plugins["triggers"].append({"name": name, "doc": cls.__doc__ or ""})
-    for name, cls in ACTIONS.items():
-        plugins["actions"].append({"name": name, "doc": cls.__doc__ or ""})
-    return plugins
-
-
 @app.route("/help/plugins")
 def help_plugins():
-    info = get_plugins_info()
+    info = get_plugins_metadata()
     return render_template("help_plugins.html", **info)
 
 
@@ -152,18 +142,26 @@ def _extract_params(cls, is_trigger):
     return params
 
 
-def get_plugins_info():
-    """Return metadata for all loaded trigger and action plugins."""
+def get_plugins_metadata():
+    """Return metadata (docstring and params) for all trigger and action plugins."""
     load_plugins()
-    triggers = [
-        {"name": name, "params": _extract_params(cls, True)}
-        for name, cls in sorted(TRIGGERS.items())
-    ]
-    actions = [
-        {"name": name, "params": _extract_params(cls, False)}
-        for name, cls in sorted(ACTIONS.items())
-    ]
-    return {"triggers": triggers, "actions": actions}
+
+    def collect(registry, is_trigger):
+        items = []
+        for name, cls in sorted(registry.items()):
+            items.append(
+                {
+                    "name": name,
+                    "doc": cls.__doc__ or "",
+                    "params": _extract_params(cls, is_trigger),
+                }
+            )
+        return items
+
+    return {
+        "triggers": collect(TRIGGERS, True),
+        "actions": collect(ACTIONS, False),
+    }
 
 
 @app.route("/")
