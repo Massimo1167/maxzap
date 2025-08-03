@@ -9,6 +9,7 @@ from flask import (
 )
 from flask_wtf import CSRFProtect
 
+from . import core
 from .core import load_plugins, TRIGGERS, ACTIONS
 import inspect
 import re
@@ -103,6 +104,14 @@ def get_plugins_help():
     return plugins
 
 
+@app.route("/help/plugins")
+def help_plugins():
+    core.load_plugins()
+    return render_template(
+        "help_plugins.html", triggers=core.TRIGGERS, actions=core.ACTIONS
+    )
+
+
 @app.route("/")
 def index():
     cfg = load_config(CONFIG_PATH)
@@ -115,7 +124,6 @@ def index():
 def edit_workflow(index=None):
     cfg = load_config(CONFIG_PATH)
     workflows = _get_workflows(cfg)
-    plugin_help = get_plugins_help()
     is_new = index is None or index >= len(workflows)
 
     if request.method == "POST":
@@ -145,7 +153,6 @@ def edit_workflow(index=None):
                     wf=wf,
                     index=index,
                     is_new=is_new,
-                    plugins=plugin_help,
                     error="Invalid JSON",
                 )
         else:
@@ -183,7 +190,6 @@ def edit_workflow(index=None):
                     wf=wf,
                     index=index,
                     is_new=is_new,
-                    plugins=plugin_help,
                     error="Invalid JSON",
                 )
         else:
@@ -239,7 +245,6 @@ def edit_workflow(index=None):
         wf=wf,
         index=index,
         is_new=is_new,
-        plugins=plugin_help,
     )
 
 

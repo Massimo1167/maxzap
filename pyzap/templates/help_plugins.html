@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% block title %}Guida Trigger/Azioni{% endblock %}
+
+{% block content %}
+<h2>Trigger Disponibili</h2>
+<ul class="list-group mb-4">
+{% for name, cls in triggers.items() %}
+    <li class="list-group-item">
+        <strong>{{ name }}</strong><br>
+        <small>{{ cls.__doc__ }}</small>
+    </li>
+{% endfor %}
+</ul>
+
+<h2>Azioni Disponibili</h2>
+<ul class="list-group">
+{% for name, cls in actions.items() %}
+    <li class="list-group-item">
+        <strong>{{ name }}</strong><br>
+        <small>{{ cls.__doc__ }}</small>
+    </li>
+{% endfor %}
+</ul>
+{% endblock %}
