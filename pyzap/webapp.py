@@ -10,6 +10,8 @@ from flask import (
 from flask_wtf import CSRFProtect
 
 from .core import load_plugins, TRIGGERS, ACTIONS
+import inspect
+import re
 
 # Assumendo che queste funzioni esistano nel tuo progetto
 # Se non esistono, puoi sostituirle con semplici open/read/write
@@ -42,6 +44,53 @@ def _get_workflows(cfg):
 def _save_config(cfg):
     """Salva l'intera configurazione su CONFIG_PATH."""
     save_config(CONFIG_PATH, cfg)
+
+
+def _parse_param_doc(doc: str):
+    """Extract parameter definitions from docstring bullet lists."""
+    params = []
+    if not doc:
+        return params
+    section_re = re.compile(
+        r"Expected (?:params|parameters|configuration keys|options)", re.I
+    )
+    in_section = False
+    for line in doc.splitlines():
+        stripped = line.strip()
+        if section_re.search(stripped):
+            in_section = True
+            continue
+        if in_section:
+            if not stripped:
+                if params:
+                    break
+                continue
+            if not stripped.startswith("-"):
+                break
+            match = re.match(r"-\s+`+([^`]+)`+(?:\s*\((optional)\))?", stripped)
+            if match:
+                name = match.group(1)
+                optional = bool(match.group(2)) or "optional" in stripped.lower()
+                params.append({"name": name, "required": not optional})
+    return params
+
+
+def _get_plugin_params(cls, *, is_trigger: bool):
+    """Return parameter info for trigger or action plugin class."""
+    func = cls.__init__ if is_trigger else cls.execute
+    sig = inspect.signature(func)
+    skip = {"self", "config"} if is_trigger else {"self", "data"}
+    params = []
+    for name, param in sig.parameters.items():
+        if name in skip:
+            continue
+        params.append({"name": name, "required": param.default is inspect._empty})
+    doc_params = _parse_param_doc(func.__doc__ or "")
+    existing = {p["name"] for p in params}
+    for p in doc_params:
+        if p["name"] not in existing:
+            params.append(p)
+    return params
 
 
 def get_plugins_help():
@@ -188,14 +237,14 @@ def edit_trigger_route(wf):
         return redirect(url_for("edit_workflow", index=wf))
 
     if request.method == "POST":
-        trigger = {"type": request.form.get("trigger_type")}
-        param_keys = [k for k in request.form if k.startswith("param_key_")]
-        for key_field in param_keys:
-            idx = key_field.rpartition("_")[-1]
-            key = request.form.get(f"param_key_{idx}")
-            value = request.form.get(f"param_value_{idx}")
-            if key:
-                trigger[key] = value
+        trig_type = request.form.get("trigger_type")
+        trigger = {"type": trig_type}
+        cls = TRIGGERS.get(trig_type)
+        if cls:
+            for param in _get_plugin_params(cls, is_trigger=True):
+                value = request.form.get(param["name"])
+                if value:
+                    trigger[param["name"]] = value
         workflows[wf]["trigger"] = trigger
         if isinstance(cfg, dict):
             cfg["workflows"] = workflows
@@ -204,12 +253,21 @@ def edit_trigger_route(wf):
             _save_config(workflows)
         return redirect(url_for("edit_workflow", index=wf))
 
-    trigger = workflows[wf].get("trigger", {})
+    trigger_cfg = workflows[wf].get("trigger", {})
+    selected_type = request.args.get("trigger_type") or trigger_cfg.get("type")
+    params = []
+    values = {}
+    if selected_type and selected_type in TRIGGERS:
+        params = _get_plugin_params(TRIGGERS[selected_type], is_trigger=True)
+        if trigger_cfg.get("type") == selected_type:
+            values = {k: v for k, v in trigger_cfg.items() if k != "type"}
     return render_template(
         "edit_trigger.html",
         wf_index=wf,
-        trigger=trigger,
         triggers=TRIGGERS,
+        trigger_type=selected_type,
+        params=params,
+        values=values,
     )
 
 
@@ -221,14 +279,14 @@ def edit_action_route(wf, idx):
         return redirect(url_for("edit_workflow", index=wf))
 
     if request.method == "POST":
-        action = {"type": request.form.get("action_type"), "params": {}}
-        param_keys = [k for k in request.form if k.startswith("param_key_")]
-        for key_field in param_keys:
-            pidx = key_field.rpartition("_")[-1]
-            key = request.form.get(f"param_key_{pidx}")
-            value = request.form.get(f"param_value_{pidx}")
-            if key:
-                action["params"][key] = value
+        action_type = request.form.get("action_type")
+        action = {"type": action_type, "params": {}}
+        cls = ACTIONS.get(action_type)
+        if cls:
+            for param in _get_plugin_params(cls, is_trigger=False):
+                value = request.form.get(param["name"])
+                if value:
+                    action["params"][param["name"]] = value
         workflows[wf]["actions"][idx] = action
         if isinstance(cfg, dict):
             cfg["workflows"] = workflows
@@ -237,13 +295,22 @@ def edit_action_route(wf, idx):
             _save_config(workflows)
         return redirect(url_for("edit_workflow", index=wf))
 
-    action = workflows[wf]["actions"][idx]
+    action_cfg = workflows[wf]["actions"][idx]
+    selected_type = request.args.get("action_type") or action_cfg.get("type")
+    params = []
+    values = {}
+    if selected_type and selected_type in ACTIONS:
+        params = _get_plugin_params(ACTIONS[selected_type], is_trigger=False)
+        if action_cfg.get("type") == selected_type:
+            values = action_cfg.get("params", {})
     return render_template(
         "edit_action.html",
         wf_index=wf,
         idx=idx,
-        action=action,
         actions=ACTIONS,
+        action_type=selected_type,
+        params=params,
+        values=values,
     )
 
 
