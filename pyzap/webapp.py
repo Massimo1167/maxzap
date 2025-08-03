@@ -164,9 +164,9 @@ def upload_config():
             data = json.load(file)
         except json.JSONDecodeError:
             return render_template("upload_config.html", error="Invalid JSON")
-        dest_path = get_config_path()
-        save_config(dest_path, data)
-        set_config_path(dest_path)
+        path = get_config_path()
+        save_config(path, data)
+        set_config_path(path)
         return redirect(url_for("index"))
     return render_template("upload_config.html")
 
