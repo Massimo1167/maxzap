@@ -216,6 +216,40 @@ def test_imap_poll(monkeypatch):
     assert captured["port"] == 123
 
 
+def test_imap_poll_max_results(monkeypatch):
+    """Setting max_results should limit fetched messages."""
+    from pyzap.plugins.imap_poll import ImapPollTrigger
+
+    class DummyIMAP:
+        def __init__(self, host, port):
+            pass
+
+        def login(self, user, pwd):
+            pass
+
+        def select(self, mbox):
+            pass
+
+        def search(self, charset, query):
+            return ("OK", [b"1 2 3 4 5"])
+
+        def fetch(self, num, parts):
+            return ("OK", [(b"1", b"Subject: s\r\nFrom: f\r\n\r\nBody")])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(imaplib, "IMAP4_SSL", lambda host, port=993: DummyIMAP(host, port))
+    trigger = ImapPollTrigger(
+        {"host": "h", "username": "u", "password": "p", "max_results": 3}
+    )
+    msgs = trigger.poll()
+    assert [m["id"] for m in msgs] == ["1", "2", "3"]
+
+
 def test_imap_poll_missing_config():
     from pyzap.plugins.imap_poll import ImapPollTrigger
 
