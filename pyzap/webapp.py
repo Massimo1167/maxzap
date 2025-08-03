@@ -88,19 +88,25 @@ def _parse_param_doc(doc: str):
 
 def _get_plugin_params(cls, *, is_trigger: bool):
     """Return parameter info for trigger or action plugin class."""
-    func = cls.__init__ if is_trigger else cls.execute
-    sig = inspect.signature(func)
-    skip = {"self", "config"} if is_trigger else {"self", "data"}
+    funcs = [cls.__init__] if is_trigger else []
+    if is_trigger:
+        funcs.append(cls.poll)
+    else:
+        funcs.append(cls.execute)
     params = []
-    for name, param in sig.parameters.items():
-        if name in skip:
-            continue
-        params.append({"name": name, "required": param.default is inspect._empty})
-    doc_params = _parse_param_doc(func.__doc__ or "")
-    existing = {p["name"] for p in params}
-    for p in doc_params:
-        if p["name"] not in existing:
-            params.append(p)
+    existing = set()
+    for func in funcs:
+        sig = inspect.signature(func)
+        skip = {"self", "config"} if func is cls.__init__ else {"self", "data"}
+        for name, param in sig.parameters.items():
+            if name in skip or name in existing:
+                continue
+            params.append({"name": name, "required": param.default is inspect._empty})
+            existing.add(name)
+        for p in _parse_param_doc(func.__doc__ or ""):
+            if p["name"] not in existing:
+                params.append(p)
+                existing.add(p["name"])
     return params
 
 
@@ -117,8 +123,26 @@ def get_plugins_help():
 @app.route("/help/plugins")
 def help_plugins():
     core.load_plugins()
+    trigger_info = []
+    for name, cls in core.TRIGGERS.items():
+        trigger_info.append(
+            {
+                "name": name,
+                "doc": cls.__doc__ or "",
+                "params": _get_plugin_params(cls, is_trigger=True),
+            }
+        )
+    action_info = []
+    for name, cls in core.ACTIONS.items():
+        action_info.append(
+            {
+                "name": name,
+                "doc": cls.__doc__ or "",
+                "params": _get_plugin_params(cls, is_trigger=False),
+            }
+        )
     return render_template(
-        "help_plugins.html", triggers=core.TRIGGERS, actions=core.ACTIONS
+        "help_plugins.html", triggers=trigger_info, actions=action_info
     )
 
 

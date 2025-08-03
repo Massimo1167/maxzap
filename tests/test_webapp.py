@@ -188,4 +188,6 @@ def test_help_plugins_route():
     resp = client.get("/help/plugins")
     assert resp.status_code == 200
     assert b"Trigger Disponibili" in resp.data
+    assert b"host" in resp.data
+    assert b"folder_id" in resp.data
 
