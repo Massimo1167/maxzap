@@ -158,13 +158,13 @@ def index():
 def upload_config():
     if request.method == "POST":
         file = request.files.get("config_file")
-        dest_path = request.form.get("dest_path")
-        if not file or not dest_path:
-            return render_template("upload_config.html", error="File o percorso mancante")
+        if not file:
+            return render_template("upload_config.html", error="File mancante")
         try:
             data = json.load(file)
         except json.JSONDecodeError:
             return render_template("upload_config.html", error="Invalid JSON")
+        dest_path = get_config_path()
         save_config(dest_path, data)
         set_config_path(dest_path)
         return redirect(url_for("index"))
