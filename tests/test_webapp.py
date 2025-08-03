@@ -140,10 +140,11 @@ def test_edit_workflow_via_form(tmp_path):
 def test_upload_config(tmp_path):
     cfg_path = tmp_path / "uploaded.json"
     client = app.test_client()
+    _set_config_path(client, str(cfg_path))
     data = BytesIO(json.dumps({"workflows": []}).encode("utf-8"))
     resp = client.post(
         "/config/upload",
-        data={"config_file": (data, "cfg.json"), "dest_path": str(cfg_path)},
+        data={"config_file": (data, "cfg.json")},
         content_type="multipart/form-data",
         follow_redirects=True,
     )
