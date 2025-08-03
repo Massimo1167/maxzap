@@ -6,8 +6,8 @@
         "type": "imap_poll",
         "host": "in.postassl.it",
         "port": 995,
-        "username": "nomecasella@nomedominio.it",
-        "password": "la password legata alla casella"
+        "username": "${IMAP_EMAIL_01}",
+        "password": "${IMAP_PASSWORD_01}"
       },
       "actions": [
         {
@@ -15,8 +15,8 @@
           "params": {
             "host": "in.postassl.it",
             "port": 995,
-            "username": "nomecasella@nomedominio.it",
-            "password": "la password legata alla casella",
+            "username": "${IMAP_EMAIL_01}",
+            "password": "${IMAP_PASSWORD_01}",
             "local_dir": "./email_attachments"
           }
         },
