@@ -4,20 +4,34 @@
 {% block content %}
 <h2>Trigger Disponibili</h2>
 <ul class="list-group mb-4">
-{% for name, cls in triggers.items() %}
+{% for trig in triggers %}
     <li class="list-group-item">
-        <strong>{{ name }}</strong><br>
-        <small>{{ cls.__doc__ }}</small>
+        <strong>{{ trig.name }}</strong><br>
+        <small>{{ trig.doc }}</small>
+        {% if trig.params %}
+        <ul class="mt-2">
+        {% for param in trig.params %}
+            <li><code>{{ param.name }}</code>{% if not param.required %} (opzionale){% endif %}</li>
+        {% endfor %}
+        </ul>
+        {% endif %}
     </li>
 {% endfor %}
 </ul>
 
 <h2>Azioni Disponibili</h2>
 <ul class="list-group">
-{% for name, cls in actions.items() %}
+{% for act in actions %}
     <li class="list-group-item">
-        <strong>{{ name }}</strong><br>
-        <small>{{ cls.__doc__ }}</small>
+        <strong>{{ act.name }}</strong><br>
+        <small>{{ act.doc }}</small>
+        {% if act.params %}
+        <ul class="mt-2">
+        {% for param in act.params %}
+            <li><code>{{ param.name }}</code>{% if not param.required %} (opzionale){% endif %}</li>
+        {% endfor %}
+        </ul>
+        {% endif %}
     </li>
 {% endfor %}
 </ul>
