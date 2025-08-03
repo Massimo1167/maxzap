@@ -7,8 +7,8 @@
         "host": "in.postassl.it",
         "port": 995,
         "username": "${IMAP_EMAIL_01}",
-        "password": "${IMAP_PASSWORD_01}"
-		"search": "UNSEEN"
+        "password": "${IMAP_PASSWORD_01}",
+        "search": "UNSEEN"
       },
       "actions": [
         {
