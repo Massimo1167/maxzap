@@ -1,3 +1,4 @@
 site_name: PyZap
 nav:
   - Home: index.md
+  - Plugins: plugins.md
