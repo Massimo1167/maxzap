@@ -57,6 +57,15 @@ SMTP credentials used for failure notifications:
 }
 ```
 
+When using the example `config.imap.json`, IMAP credentials are read from the
+environment. Define `IMAP_EMAIL_01` and `IMAP_PASSWORD_01` before running the
+application:
+
+```bash
+export IMAP_EMAIL_01="nomecasella@nomedominio.it"
+export IMAP_PASSWORD_01="la password legata alla casella"
+```
+
 ## Email polling triggers
 
 Two built-in triggers allow fetching messages from email servers:

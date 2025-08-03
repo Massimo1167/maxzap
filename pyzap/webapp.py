@@ -1,6 +1,7 @@
 import json
 import inspect
 import re
+
 from flask import (
     Flask,
     jsonify,
@@ -11,12 +12,8 @@ from flask import (
     url_for,
 )
 from flask_wtf import CSRFProtect
-from .core import ACTIONS, TRIGGERS, BaseAction, BaseTrigger, load_plugins
 
-from . import core
-from .core import load_plugins, TRIGGERS, ACTIONS
-import inspect
-import re
+from .core import ACTIONS, TRIGGERS, load_plugins
 
 # Assumendo che queste funzioni esistano nel tuo progetto
 # Se non esistono, puoi sostituirle con semplici open/read/write
@@ -113,40 +110,10 @@ def _get_plugin_params(cls, *, is_trigger: bool):
     return params
 
 
-def get_plugins_help():
-    """Collect plugin names and their docstrings for triggers and actions."""
-    plugins = {"triggers": [], "actions": []}
-    for name, cls in TRIGGERS.items():
-        plugins["triggers"].append({"name": name, "doc": cls.__doc__ or ""})
-    for name, cls in ACTIONS.items():
-        plugins["actions"].append({"name": name, "doc": cls.__doc__ or ""})
-    return plugins
-
-
 @app.route("/help/plugins")
 def help_plugins():
-    core.load_plugins()
-    trigger_info = []
-    for name, cls in core.TRIGGERS.items():
-        trigger_info.append(
-            {
-                "name": name,
-                "doc": cls.__doc__ or "",
-                "params": _get_plugin_params(cls, is_trigger=True),
-            }
-        )
-    action_info = []
-    for name, cls in core.ACTIONS.items():
-        action_info.append(
-            {
-                "name": name,
-                "doc": cls.__doc__ or "",
-                "params": _get_plugin_params(cls, is_trigger=False),
-            }
-        )
-    return render_template(
-        "help_plugins.html", triggers=trigger_info, actions=action_info
-    )
+    info = get_plugins_metadata()
+    return render_template("help_plugins.html", **info)
 
 
 def _extract_params(cls, is_trigger):
@@ -175,18 +142,26 @@ def _extract_params(cls, is_trigger):
     return params
 
 
-def get_plugins_info():
-    """Return metadata for all loaded trigger and action plugins."""
+def get_plugins_metadata():
+    """Return metadata (docstring and params) for all trigger and action plugins."""
     load_plugins()
-    triggers = [
-        {"name": name, "params": _extract_params(cls, True)}
-        for name, cls in sorted(TRIGGERS.items())
-    ]
-    actions = [
-        {"name": name, "params": _extract_params(cls, False)}
-        for name, cls in sorted(ACTIONS.items())
-    ]
-    return {"triggers": triggers, "actions": actions}
+
+    def collect(registry, is_trigger):
+        items = []
+        for name, cls in sorted(registry.items()):
+            items.append(
+                {
+                    "name": name,
+                    "doc": cls.__doc__ or "",
+                    "params": _extract_params(cls, is_trigger),
+                }
+            )
+        return items
+
+    return {
+        "triggers": collect(TRIGGERS, True),
+        "actions": collect(ACTIONS, False),
+    }
 
 
 @app.route("/")
@@ -498,12 +473,6 @@ def create_workflow_api():
         _save_config(workflows, path)
 
     return jsonify({"status": "ok"})
-
-
-@app.route("/help/plugins")
-def help_plugins():
-    info = get_plugins_info()
-    return render_template("help_plugins.html", **info)
 
 
 if __name__ == "__main__":
