@@ -1,8 +1,8 @@
-from pyzap.webapp import app, get_plugins_info
+from pyzap.webapp import app, get_plugins_metadata
 
 
 def test_plugins_help_page_lists_all_params():
-    info = get_plugins_info()
+    info = get_plugins_metadata()
     client = app.test_client()
     resp = client.get("/help/plugins")
     assert resp.status_code == 200
