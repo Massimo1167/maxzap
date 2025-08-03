@@ -9,6 +9,8 @@ from flask import (
 )
 from flask_wtf import CSRFProtect
 
+from .core import load_plugins, TRIGGERS, ACTIONS
+
 # Assumendo che queste funzioni esistano nel tuo progetto
 # Se non esistono, puoi sostituirle con semplici open/read/write
 # from .config import load_config, save_config
@@ -28,6 +30,9 @@ def save_config(path, data):
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"
 csrf = CSRFProtect(app)
+
+# Load available plugins at startup so TRIGGERS and ACTIONS are populated
+load_plugins()
 CONFIG_PATH = "azienda.agricola-splitpdf.json" # Usa il tuo file di config
 
 def _get_workflows(cfg):
@@ -37,6 +42,16 @@ def _get_workflows(cfg):
 def _save_config(cfg):
     """Salva l'intera configurazione su CONFIG_PATH."""
     save_config(CONFIG_PATH, cfg)
+
+
+def get_plugins_help():
+    """Collect plugin names and their docstrings for triggers and actions."""
+    plugins = {"triggers": [], "actions": []}
+    for name, cls in TRIGGERS.items():
+        plugins["triggers"].append({"name": name, "doc": cls.__doc__ or ""})
+    for name, cls in ACTIONS.items():
+        plugins["actions"].append({"name": name, "doc": cls.__doc__ or ""})
+    return plugins
 
 
 @app.route("/")
@@ -51,6 +66,8 @@ def index():
 def edit_workflow(index=None):
     cfg = load_config(CONFIG_PATH)
     workflows = _get_workflows(cfg)
+    plugin_help = get_plugins_help()
+    is_new = index is None or index >= len(workflows)
 
     if request.method == "POST":
         # Ricostruisci le impostazioni globali
@@ -69,6 +86,14 @@ def edit_workflow(index=None):
             "actions": []
         }
 
+        # Campi legacy per il trigger
+        if request.form.get("trigger_type"):
+            wf['trigger']['type'] = request.form.get("trigger_type")
+        if request.form.get("trigger_query"):
+            wf['trigger']['query'] = request.form.get("trigger_query")
+        if request.form.get("trigger_token_file"):
+            wf['trigger']['token_file'] = request.form.get("trigger_token_file")
+
         # Ricostruisci il trigger dai parametri del form
         trigger_keys = [k for k in request.form if k.startswith('trigger_param_key_')]
         for key_field in trigger_keys:
@@ -77,7 +102,7 @@ def edit_workflow(index=None):
             value = request.form[f'trigger_param_value_{idx}']
             if key:
                 wf['trigger'][key] = value
-        
+
         # Converte valori numerici dove possibile
         if wf['trigger'].get('max_results'):
             wf['trigger']['max_results'] = int(wf['trigger']['max_results'])
@@ -85,48 +110,74 @@ def edit_workflow(index=None):
             wf['trigger']['interval'] = int(wf['trigger']['interval'])
 
         # Ricostruisci le azioni
-        action_indices = sorted(list(set([k.split('_')[1] for k in request.form if k.startswith('action_')])))
-        for i in action_indices:
-            action_type = request.form.get(f'action_{i}_type')
-            if not action_type:
-                continue
-            
-            action = {"type": action_type, "params": {}}
-            param_keys = [k for k in request.form if k.startswith(f'action_{i}_param_key_')]
+        if 'actions' in request.form:
+            try:
+                wf['actions'] = json.loads(request.form['actions'])
+            except json.JSONDecodeError:
+                return render_template(
+                    "edit_workflow.html",
+                    cfg=cfg,
+                    wf=wf,
+                    index=index,
+                    is_new=is_new,
+                    plugins=plugin_help,
+                    error="Invalid JSON",
+                )
+        else:
+            action_indices = sorted(
+                list(set([k.split('_')[1] for k in request.form if k.startswith('action_')]))
+            )
+            for i in action_indices:
+                action_type = request.form.get(f'action_{i}_type')
+                if not action_type:
+                    continue
 
-            for key_field in param_keys:
-                param_idx = key_field.rpartition('_')[-1]
-                key = request.form[f'action_{i}_param_key_{param_idx}']
-                value = request.form[f'action_{i}_param_value_{param_idx}']
-                if key:
-                    # Tenta di convertire a booleano o numero se appropriato
-                    if value.lower() == 'true':
-                        action['params'][key] = True
-                    elif value.lower() == 'false':
-                        action['params'][key] = False
-                    else:
-                        action['params'][key] = value
-            
-            wf['actions'].append(action)
+                action = {"type": action_type, "params": {}}
+                param_keys = [k for k in request.form if k.startswith(f'action_{i}_param_key_')]
+
+                for key_field in param_keys:
+                    param_idx = key_field.rpartition('_')[-1]
+                    key = request.form[f'action_{i}_param_key_{param_idx}']
+                    value = request.form[f'action_{i}_param_value_{param_idx}']
+                    if key:
+                        # Tenta di convertire a booleano o numero se appropriato
+                        if value.lower() == 'true':
+                            action['params'][key] = True
+                        elif value.lower() == 'false':
+                            action['params'][key] = False
+                        else:
+                            action['params'][key] = value
+
+                wf['actions'].append(action)
 
         if index is None:
             workflows.append(wf)
-        else:
+        elif index < len(workflows):
             workflows[index] = wf
-        
-        cfg['workflows'] = workflows
-        _save_config(cfg)
+        else:
+            workflows.append(wf)
+
+        if isinstance(cfg, dict):
+            cfg['workflows'] = workflows
+            _save_config(cfg)
+        else:
+            _save_config(workflows)
         return redirect(url_for("index"))
 
     # Metodo GET
-    if index is not None and index < len(workflows):
+    if not is_new:
         wf = workflows[index]
-        is_new = False
     else:
         wf = {"id": "", "trigger": {}, "actions": []}
-        is_new = True
 
-    return render_template("edit_workflow.html", cfg=cfg, wf=wf, index=index, is_new=is_new)
+    return render_template(
+        "edit_workflow.html",
+        cfg=cfg,
+        wf=wf,
+        index=index,
+        is_new=is_new,
+        plugins=plugin_help,
+    )
 
 
 @csrf.exempt
@@ -137,8 +188,11 @@ def create_workflow_api():
     cfg = load_config(CONFIG_PATH)
     workflows = _get_workflows(cfg)
     workflows.append(data)
-    cfg['workflows'] = workflows
-    _save_config(cfg)
+    if isinstance(cfg, dict):
+        cfg['workflows'] = workflows
+        _save_config(cfg)
+    else:
+        _save_config(workflows)
     return jsonify({"status": "ok"})
 
 
