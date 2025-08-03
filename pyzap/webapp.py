@@ -1,4 +1,6 @@
 import json
+import inspect
+import re
 from flask import (
     Flask,
     jsonify,
@@ -9,6 +11,7 @@ from flask import (
     url_for,
 )
 from flask_wtf import CSRFProtect
+from .core import ACTIONS, TRIGGERS, BaseAction, BaseTrigger, load_plugins
 
 from . import core
 from .core import load_plugins, TRIGGERS, ACTIONS
@@ -146,6 +149,46 @@ def help_plugins():
     )
 
 
+def _extract_params(cls, is_trigger):
+    """Return list of {'name':..., 'desc':...} for plugin class."""
+    doc = inspect.getdoc(cls.poll if is_trigger else cls.execute) or inspect.getdoc(cls) or ""
+    params = []
+    lines = doc.splitlines()
+    pattern = re.compile(r"- ``([^`]+)``: (.*)")
+    i = 0
+    while i < len(lines):
+        match = pattern.match(lines[i].strip())
+        if match:
+            name = match.group(1)
+            desc = match.group(2).strip()
+            i += 1
+            while i < len(lines) and lines[i].startswith(" "):
+                desc += " " + lines[i].strip()
+                i += 1
+            params.append({"name": name, "desc": desc})
+        else:
+            i += 1
+    if not params:
+        source = inspect.getsource(cls)
+        matches = re.findall(r"self\.(?:config|params)\.get\(\"([^\"]+)\"", source)
+        params = [{"name": p, "desc": ""} for p in sorted(set(matches))]
+    return params
+
+
+def get_plugins_info():
+    """Return metadata for all loaded trigger and action plugins."""
+    load_plugins()
+    triggers = [
+        {"name": name, "params": _extract_params(cls, True)}
+        for name, cls in sorted(TRIGGERS.items())
+    ]
+    actions = [
+        {"name": name, "params": _extract_params(cls, False)}
+        for name, cls in sorted(ACTIONS.items())
+    ]
+    return {"triggers": triggers, "actions": actions}
+
+
 @app.route("/")
 def index():
     cfg = load_config(get_config_path())
@@ -201,6 +244,32 @@ def edit_workflow(index=None):
     is_new = index is None or index >= len(workflows)
 
     if request.method == "POST":
+        # Support legacy simple form used in tests
+        if "trigger_type" in request.form:
+            try:
+                actions = json.loads(request.form.get("actions", "[]"))
+            except json.JSONDecodeError:
+                return "Invalid JSON"
+
+            wf = {
+                "id": request.form.get("id"),
+                "trigger": {
+                    "type": request.form.get("trigger_type"),
+                    "query": request.form.get("trigger_query"),
+                    "token_file": request.form.get("trigger_token_file"),
+                },
+                "actions": actions,
+            }
+
+            if index is None:
+                workflows.append(wf)
+            else:
+                workflows[index] = wf
+
+            cfg['workflows'] = workflows
+            _save_config(cfg)
+            return redirect(url_for("index"))
+
         # Ricostruisci le impostazioni globali
         cfg['admin_email'] = request.form.get('admin_email', '')
         if 'smtp' not in cfg:
@@ -308,6 +377,7 @@ def edit_workflow(index=None):
             _save_config(workflows, save_path)
         if request.form.get("new_path"):
             set_config_path(save_path)
+
         return redirect(url_for("index"))
 
     # Metodo GET
@@ -426,7 +496,14 @@ def create_workflow_api():
         _save_config(cfg, path)
     else:
         _save_config(workflows, path)
+
     return jsonify({"status": "ok"})
+
+
+@app.route("/help/plugins")
+def help_plugins():
+    info = get_plugins_info()
+    return render_template("help_plugins.html", **info)
 
 
 if __name__ == "__main__":
