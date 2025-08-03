@@ -135,28 +135,42 @@ def edit_workflow(index=None):
             "actions": []
         }
 
-        # Campi legacy per il trigger
-        if request.form.get("trigger_type"):
-            wf['trigger']['type'] = request.form.get("trigger_type")
-        if request.form.get("trigger_query"):
-            wf['trigger']['query'] = request.form.get("trigger_query")
-        if request.form.get("trigger_token_file"):
-            wf['trigger']['token_file'] = request.form.get("trigger_token_file")
+        if request.form.get("trigger"):
+            try:
+                wf["trigger"] = json.loads(request.form["trigger"])
+            except json.JSONDecodeError:
+                return render_template(
+                    "edit_workflow.html",
+                    cfg=cfg,
+                    wf=wf,
+                    index=index,
+                    is_new=is_new,
+                    plugins=plugin_help,
+                    error="Invalid JSON",
+                )
+        else:
+            # Campi legacy per il trigger
+            if request.form.get("trigger_type"):
+                wf['trigger']['type'] = request.form.get("trigger_type")
+            if request.form.get("trigger_query"):
+                wf['trigger']['query'] = request.form.get("trigger_query")
+            if request.form.get("trigger_token_file"):
+                wf['trigger']['token_file'] = request.form.get("trigger_token_file")
 
-        # Ricostruisci il trigger dai parametri del form
-        trigger_keys = [k for k in request.form if k.startswith('trigger_param_key_')]
-        for key_field in trigger_keys:
-            idx = key_field.rpartition('_')[-1]
-            key = request.form[f'trigger_param_key_{idx}']
-            value = request.form[f'trigger_param_value_{idx}']
-            if key:
-                wf['trigger'][key] = value
+            # Ricostruisci il trigger dai parametri del form
+            trigger_keys = [k for k in request.form if k.startswith('trigger_param_key_')]
+            for key_field in trigger_keys:
+                idx = key_field.rpartition('_')[-1]
+                key = request.form[f'trigger_param_key_{idx}']
+                value = request.form[f'trigger_param_value_{idx}']
+                if key:
+                    wf['trigger'][key] = value
 
-        # Converte valori numerici dove possibile
-        if wf['trigger'].get('max_results'):
-            wf['trigger']['max_results'] = int(wf['trigger']['max_results'])
-        if wf['trigger'].get('interval'):
-            wf['trigger']['interval'] = int(wf['trigger']['interval'])
+            # Converte valori numerici dove possibile
+            if wf['trigger'].get('max_results'):
+                wf['trigger']['max_results'] = int(wf['trigger']['max_results'])
+            if wf['trigger'].get('interval'):
+                wf['trigger']['interval'] = int(wf['trigger']['interval'])
 
         # Ricostruisci le azioni
         if 'actions' in request.form:

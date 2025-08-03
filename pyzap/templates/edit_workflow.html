@@ -85,169 +85,100 @@
             </div>
         </div>
     </div>
-    
-    <!-- Trigger -->
+
+    <!-- Trigger summary card -->
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             Trigger
-            {% if not is_new %}
-            <a href="{{ url_for('edit_trigger_route', wf=index) }}" class="btn btn-sm btn-outline-primary">Modifica</a>
-            {% endif %}
+            <div>
+                {% if not is_new %}
+                <a href="{{ url_for('edit_trigger_route', wf=index) }}" class="btn btn-sm btn-outline-primary">Modifica</a>
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-danger" onclick="clearTrigger()">Cancella</button>
+            </div>
         </div>
-        <div class="card-body" id="trigger-params">
-             {% for key, value in wf.trigger.items() %}
-             <div class="row align-items-center mb-2 param-row">
-                 <div class="col-5">
-                     <input type="text" class="form-control" name="trigger_param_key_{{ loop.index0 }}" placeholder="Nome Parametro" value="{{ key }}">
-                 </div>
-                 <div class="col-5">
-                     <input type="text" class="form-control" name="trigger_param_value_{{ loop.index0 }}" placeholder="Valore" value="{{ value }}">
-                 </div>
-                 <div class="col-2">
-                     <button type="button" class="btn btn-sm btn-danger" onclick="deleteParam(this)"><i class="bi bi-trash"></i></button>
-                 </div>
-             </div>
-             {% endfor %}
-        </div>
-        <div class="card-footer">
-            <button type="button" class="btn btn-sm btn-success" onclick="addParam('trigger-params', 'trigger')">
-                <i class="bi bi-plus-circle"></i> Aggiungi Parametro al Trigger
-            </button>
-        </div>
+        <div class="card-body" id="trigger-summary"></div>
     </div>
+    <input type="hidden" name="trigger" id="trigger-input" value='{{ wf.trigger|tojson }}'>
 
-    <!-- Actions -->
+    <!-- Actions summary cards -->
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h3>Azioni</h3>
         <button type="button" class="btn btn-success" onclick="addAction()">
             <i class="bi bi-plus-circle"></i> Aggiungi Azione
         </button>
     </div>
-    <div id="actions-container">
-        {% for action in wf.get('actions', []) %}
-        {% set action_index = loop.index0 %}
-        <div class="card action-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                Azione
-                <div>
-                    {% if not is_new %}
-                    <a href="{{ url_for('edit_action_route', wf=index, idx=action_index) }}" class="btn btn-sm btn-outline-primary">Modifica</a>
-                    {% endif %}
-                    <button type="button" class="btn-close" aria-label="Close" onclick="this.closest('.action-card').remove()"></button>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label">Tipo di Azione</label>
-                    <input type="text" class="form-control" name="action_{{ loop.index0 }}_type" value="{{ action.type }}" required>
-                </div>
-                <h6>Parametri</h6>
-                <div class="action-params">
-                {% for key, value in (action.params|default({})).items() %}
-                    <div class="row align-items-center mb-2 param-row">
-                        <div class="col-5">
-                            <input type="text" class="form-control" name="action_{{ action_index }}_param_key_{{ loop.index0 }}" placeholder="Nome Parametro" value="{{ key }}">
-                        </div>
-                        <div class="col-5">
-                            <input type="text" class="form-control" name="action_{{ action_index }}_param_value_{{ loop.index0 }}" placeholder="Valore" value="{{ value }}">
-                        </div>
-                        <div class="col-2">
-                            <button type="button" class="btn btn-sm btn-danger" onclick="deleteParam(this)"><i class="bi bi-trash"></i></button>
-                        </div>
-                    </div>
-                {% endfor %}
-                </div>
-                 <button type="button" class="btn btn-sm btn-outline-success mt-2" onclick="addParam(this.previousElementSibling, 'action', {{ action_index }})">
-                    <i class="bi bi-plus-circle"></i> Aggiungi Parametro
-                </button>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
+    <div id="actions-container"></div>
+    <input type="hidden" name="actions" id="actions-input" value='{{ wf.get("actions", [])|tojson }}'>
 </form>
 
-<!-- Template per una nuova azione (nascosto) -->
-<template id="action-template">
-    <div class="card action-card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            Nuova Azione
-            <button type="button" class="btn-close" aria-label="Close" onclick="this.closest('.action-card').remove()"></button>
-        </div>
-        <div class="card-body">
-            <div class="mb-3">
-                <label class="form-label">Tipo di Azione</label>
-                <input type="text" class="form-control" name="action_idx_type" placeholder="es. excel_append" required>
-            </div>
-            <h6>Parametri</h6>
-            <div class="action-params">
-                <!-- I parametri verranno aggiunti qui -->
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-success mt-2" onclick="addParam(this.previousElementSibling, 'action', 'idx')">
-                <i class="bi bi-plus-circle"></i> Aggiungi Parametro
-            </button>
-        </div>
-    </div>
-</template>
-
-<!-- Template per un nuovo parametro (nascosto) -->
-<template id="param-template">
-     <div class="row align-items-center mb-2 param-row">
-        <div class="col-5">
-            <input type="text" class="form-control" name="param_key_name" placeholder="Nome Parametro">
-        </div>
-        <div class="col-5">
-            <input type="text" class="form-control" name="param_value_name" placeholder="Valore">
-        </div>
-        <div class="col-2">
-            <button type="button" class="btn btn-sm btn-danger" onclick="deleteParam(this)"><i class="bi bi-trash"></i></button>
-        </div>
-    </div>
-</template>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    let actionCounter = {{ wf.get('actions', [])|length }};
+    const isNew = {{ 'true' if is_new else 'false' }};
+    let trigger = JSON.parse(document.getElementById('trigger-input').value || '{}');
+    let actions = JSON.parse(document.getElementById('actions-input').value || '[]');
+
+    {% if not is_new %}
+    const editActionBase = "{{ url_for('edit_action_route', wf=index, idx=0)[:-1] }}";
+    {% endif %}
+
+    function renderTrigger() {
+        const summary = document.getElementById('trigger-summary');
+        if (trigger.type) {
+            let html = `<strong>${trigger.type}</strong>`;
+            const params = Object.assign({}, trigger);
+            delete params.type;
+            const entries = Object.entries(params);
+            if (entries.length) {
+                html += '<ul class="mb-0">' + entries.map(([k,v]) => `<li>${k}: ${v}</li>`).join('') + '</ul>';
+            }
+            summary.innerHTML = html;
+        } else {
+            summary.innerHTML = '<em>Nessun trigger configurato</em>';
+        }
+        document.getElementById('trigger-input').value = JSON.stringify(trigger);
+    }
+
+    function clearTrigger() {
+        trigger = {};
+        renderTrigger();
+    }
+
+    function renderActions() {
+        const container = document.getElementById('actions-container');
+        container.innerHTML = '';
+        actions.forEach((action, idx) => {
+            const params = action.params || {};
+            const entries = Object.entries(params);
+            const paramsHtml = entries.length ? '<ul class="mb-0">' + entries.map(([k,v]) => `<li>${k}: ${v}</li>`).join('') + '</ul>' : '';
+            const card = document.createElement('div');
+            card.className = 'card mb-2';
+            let buttons = `<button type="button" class="btn btn-sm btn-danger" onclick="removeAction(${idx})">Cancella</button>`;
+            if (!isNew) {
+                buttons = `<a href="${editActionBase}${idx}" class="btn btn-sm btn-outline-primary me-2">Modifica</a>` + buttons;
+            }
+            card.innerHTML = `<div class="card-body d-flex justify-content-between align-items-center">
+                <div><strong>${action.type || '(non configurata)'}</strong>${paramsHtml}</div>
+                <div>${buttons}</div>
+            </div>`;
+            container.appendChild(card);
+        });
+        document.getElementById('actions-input').value = JSON.stringify(actions);
+    }
 
     function addAction() {
-        const template = document.getElementById('action-template');
-        const clone = template.content.cloneNode(true);
-        
-        // Aggiorna i nomi dei campi per essere unici
-        clone.querySelector('[name="action_idx_type"]').name = `action_${actionCounter}_type`;
-        const addParamBtn = clone.querySelector('button[onclick*="addParam"]');
-        addParamBtn.setAttribute('onclick', `addParam(this.previousElementSibling, 'action', ${actionCounter})`);
-        
-        document.getElementById('actions-container').appendChild(clone);
-        actionCounter++;
+        actions.push({type: '', params: {}});
+        renderActions();
     }
 
-    function addParam(container, prefix, actionIndex = null) {
-        if (typeof container === 'string') {
-            container = document.getElementById(container);
-        }
-        
-        const paramCount = container.querySelectorAll('.param-row').length;
-        const template = document.getElementById('param-template');
-        const clone = template.content.cloneNode(true);
-        
-        let keyName, valueName;
-        if (prefix === 'trigger') {
-            keyName = `trigger_param_key_${paramCount}`;
-            valueName = `trigger_param_value_${paramCount}`;
-        } else {
-            keyName = `action_${actionIndex}_param_key_${paramCount}`;
-            valueName = `action_${actionIndex}_param_value_${paramCount}`;
-        }
-        
-        clone.querySelector('[name="param_key_name"]').name = keyName;
-        clone.querySelector('[name="param_value_name"]').name = valueName;
-        
-        container.appendChild(clone);
+    function removeAction(idx) {
+        actions.splice(idx, 1);
+        renderActions();
     }
-    
-    function deleteParam(btn) {
-        btn.closest('.param-row').remove();
-    }
+
+    renderTrigger();
+    renderActions();
 </script>
 {% endblock %}
