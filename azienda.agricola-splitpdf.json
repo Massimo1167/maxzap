@@ -15,31 +15,42 @@
         "type": "gmail_poll",
         "max_results": 10,
         "interval": 60,
-		"accounts": [
-		  {"token_file": "token_aziendaagricolapezzuoli.json", "query": "from:notifiche@01s.eu label:inbox -is:starred"}
-		]
+        "accounts": [
+          {
+            "token_file": "token_aziendaagricolapezzuoli.json",
+            "query": "from:notifiche@01s.eu label:inbox -is:starred"
+          }
+        ]
       },
       "actions": [
         {
           "_comment_action_gmail_archive": "Questa action salva messaggi, allegati (specificando estensioni ammesse) ed allegati tramite link, in una directory locale.",
           "type": "gmail_archive",
           "params": {
-			    "local_dir": "../gmail/archive",
-			    "attachment_types": [".pdf"],
-			    "save_message": true,
-			    "save_attachments": true,
-			    "download_links": true
-			    }
+            "local_dir": "../gmail/archive",
+            "attachment_types": [
+              ".pdf"
+            ],
+            "save_message": true,
+            "save_attachments": true,
+            "download_links": true
+          }
         },
         {
           "_comment_action_excel_append": "Questa action salva i campi del dizionario dell'azione precedente in un file excel , in un foglio definito e specificando i campi richiesti.",
           "type": "excel_append",
           "params": {
-                "file": "../gmail/log.xlsm",
-                "sheet": "Archivio",
-                "fields": ["datetime", "sender", "subject", "attachments","storage_path"],
-                "max_message_length": 1000
-                }
+            "file": "../gmail/log.xlsm",
+            "sheet": "Archivio",
+            "fields": [
+              "datetime",
+              "sender",
+              "subject",
+              "attachments",
+              "storage_path"
+            ],
+            "max_message_length": 1000
+          }
         },
         {
           "_comment_action_pdf_split_1": "Questa action analizza un file pdf ricevuto dall'azione di prima, lo splitta in più file in base ad un pattern.",
@@ -50,18 +61,27 @@
             "pattern": "Cedente/prestatore \\(fornitore\\)",
             "parse_invoice": true,
             "name_template": "{documento_data} Fattura {documento_numero} {fornitore_denominazione}.pdf",
-            "date_formats": {"documento_data": "%Y-%m-%d"}
+            "date_formats": {
+              "documento_data": "%Y-%m-%d"
+            }
           }
         },
         {
           "_comment_action_excel_append": "Questa action salva i campi del dizionario dell'azione precedente in un file excel , in un foglio definito e specificando i campi richiesti.",
           "type": "excel_append",
           "params": {
-                "file": "../fatture/fatture.xlsm",
-                "sheet": "Fatture",
-                "fields": ["documento_data","documento_numero","fornitore_denominazione","pagamento_modalita","pagamento_importo","pagamento_scadenza"],
-                "max_message_length": 1000
-            }
+            "file": "../fatture/fatture.xlsm",
+            "sheet": "Fatture",
+            "fields": [
+              "documento_data",
+              "documento_numero",
+              "fornitore_denominazione",
+              "pagamento_modalita",
+              "pagamento_importo",
+              "pagamento_scadenza"
+            ],
+            "max_message_length": 1000
+          }
         }
       ]
     }
