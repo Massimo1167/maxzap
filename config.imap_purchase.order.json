@@ -4,13 +4,13 @@
       "id": "aruba-imap",
       "trigger": {
         "type": "imap_poll",
-		"max_results": 100,
+		"max_results": 1000,
         "host": "in.postassl.it",
         "port": 993,
         "username": "${IMAP_EMAIL_PURCHASE}",
         "password": "${IMAP_PASSWORD_PURCHASE}",
-        "search": "UNSEEN SINCE 1-Jan-2025",
-		"has_attachment": true
+        "search": "SINCE 1-Jan-2025"
+		
       },
       "actions": [
         {
