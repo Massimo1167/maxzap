@@ -87,27 +87,30 @@ class ImapPollTrigger(BaseTrigger):
                         for part in msg.walk():
                             cd = part.get_content_disposition()
                             filename = part.get_filename() or part.get_param("name")
+                            is_attachment = bool(
+                                filename
+                                and (cd in ("attachment", "inline") or cd is None)
+                            )
                             if (
                                 part.get_content_type() == "text/plain"
                                 and not body
-                                and not (
-                                    cd in ("attachment", "inline") and filename
-                                )
+                                and not is_attachment
                             ):
                                 payload_bytes = part.get_payload(decode=True)
                                 if payload_bytes is not None:
                                     body = payload_bytes.decode(errors="replace")
-                            elif cd in ("attachment", "inline") and filename:
+                            elif is_attachment:
                                 has_attachments = True
                     else:
                         payload_bytes = msg.get_payload(decode=True)
                         # Apply the same attachment detection for single-part messages
                         cd = msg.get_content_disposition()
                         filename = msg.get_filename() or msg.get_param("name")
-                        if (
-                            msg.get_content_type() == "text/plain"
-                            and not (cd in ("attachment", "inline") and filename)
-                        ):
+                        is_attachment = bool(
+                            filename
+                            and (cd in ("attachment", "inline") or cd is None)
+                        )
+                        if msg.get_content_type() == "text/plain" and not is_attachment:
                             body = (
                                 payload_bytes.decode(errors="replace")
                                 if payload_bytes is not None
@@ -115,9 +118,7 @@ class ImapPollTrigger(BaseTrigger):
                             )
                         else:
                             body = ""
-                        has_attachments = cd in ("attachment", "inline") and bool(
-                            filename
-                        )
+                        has_attachments = is_attachment
 
                     if (
                         has_attachment_filter is not None
