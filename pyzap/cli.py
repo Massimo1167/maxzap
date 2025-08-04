@@ -58,6 +58,8 @@ def run_engine(args: argparse.Namespace) -> None:
         args.config,
         log_level=args.log_level,
         step_mode=args.step,
+        iterations=args.iterations,
+        repeat_interval=args.repeat_interval,
     )
 
 
@@ -97,6 +99,18 @@ def main() -> None:
         "--step",
         action="store_true",
         help="Pause for input between workflow steps",
+    )
+    sub_run.add_argument(
+        "--iterations",
+        type=int,
+        default=0,
+        help="Number of cycles to run (0 means run forever)",
+    )
+    sub_run.add_argument(
+        "--repeat-interval",
+        type=float,
+        default=1.0,
+        help="Delay between cycles when repeating",
     )
     sub_run.set_defaults(func=run_engine)
 

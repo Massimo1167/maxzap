@@ -177,6 +177,48 @@ def test_main_loop_sigterm(monkeypatch, tmp_path):
     assert created["engine"].stop_called
 
 
+def test_main_loop_iterations_sleep(monkeypatch, tmp_path):
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text("[]")
+
+    monkeypatch.setattr(core, "load_plugins", lambda: None)
+    monkeypatch.setattr(core.signal, "signal", lambda sig, func: None)
+
+    sleeps = []
+    monkeypatch.setattr(core.time, "sleep", lambda s: sleeps.append(s))
+
+    class DummyEngine:
+        def __init__(self, path, *, step_mode=False):
+            self.calls = 0
+
+        def run_all(self):
+            self.calls += 1
+
+        def stop(self):
+            pass
+
+    monkeypatch.setattr(core, "WorkflowEngine", DummyEngine)
+
+    core.main_loop(str(cfg_path), iterations=1, repeat_interval=2.5)
+    assert sleeps == []
+
+    sleeps.clear()
+    core.main_loop(str(cfg_path), iterations=2, repeat_interval=3.0)
+    assert sleeps == [3.0]
+
+    sleeps.clear()
+
+    class DummyEngineInf(DummyEngine):
+        def run_all(self):
+            self.calls += 1
+            if self.calls > 1:
+                raise KeyboardInterrupt
+
+    monkeypatch.setattr(core, "WorkflowEngine", DummyEngineInf)
+    core.main_loop(str(cfg_path), iterations=0, repeat_interval=4.0)
+    assert sleeps == [4.0]
+
+
 def test_load_plugins(monkeypatch, tmp_path):
     """load_plugins() should register trigger and action classes found in the plugins package."""
     plugins_dir = tmp_path / "plugins"
