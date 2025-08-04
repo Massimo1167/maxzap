@@ -78,8 +78,10 @@ Two built-in triggers allow fetching messages from email servers:
 * `imap_poll` &ndash; connects to any IMAP server using username and password.
   Required options are `host`, `username` and `password`. Optional keys are
   `port` (defaults to `993`), `mailbox` (defaults to `INBOX`), `search`
-  (defaults to `UNSEEN`) and `max_results` to limit how many messages are
-  fetched (defaults to `100`).
+  (defaults to `UNSEEN`), `max_results` to limit how many messages are
+  fetched (defaults to `100`) and `has_attachment` to filter messages by
+  attachment presence (`true` keeps only messages with attachments,
+  `false` keeps only those without).
 
 ## Archive and spreadsheet actions
 
