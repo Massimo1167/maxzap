@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import email
+from email.header import decode_header, make_header
 import imaplib
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any, Dict, List
 
 from ..core import BaseAction
 from .gdrive_upload import GDriveUploadAction
+from ..utils import safe_filename
 
 
 class ImapArchiveAction(BaseAction):
@@ -64,7 +66,9 @@ class ImapArchiveAction(BaseAction):
         if save_attachments:
             for part in msg.walk():
                 if part.get_content_disposition() == "attachment":
-                    filename = part.get_filename() or "attachment"
+                    raw_name = part.get_filename() or "attachment"
+                    decoded = str(make_header(decode_header(raw_name)))
+                    filename = safe_filename(decoded)
                     payload = part.get_payload(decode=True) or b""
                     files.append((filename, payload))
                     attachments.append(filename)
