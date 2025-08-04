@@ -39,7 +39,7 @@ class ExcelAppendAction(BaseAction):
         keep_vba = str(file_path).lower().endswith(".xlsm")
 
         with excel_lock(file_path):
-            wb = load_workbook(file_path, keep_vba=keep_vba)
+            wb = load_workbook(file_path, keep_vba=keep_vba, keep_links=True)
             try:
                 ws = wb[sheet_name] if sheet_name else wb.active
 
