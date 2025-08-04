@@ -55,7 +55,12 @@ _INVALID_CHARS = re.compile(r'[\\/*?:"<>|]')
 
 
 def safe_filename(name: str, max_length: int = 100) -> str:
-    """Return a filesystem-safe version of ``name`` limited in length."""
+    """Return a filesystem-safe version of ``name``.
+
+    The returned name has surrounding whitespace trimmed, internal whitespace
+    collapsed, Windows-invalid characters replaced with underscores, and is
+    truncated to ``max_length`` characters while preserving any file extension.
+    """
     name = re.sub(r"\s+", " ", name.strip())
     name = _INVALID_CHARS.sub("_", name)
     if len(name) > max_length:

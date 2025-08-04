@@ -303,6 +303,7 @@ def _setup_gmail_bad_filename(monkeypatch):
     """Setup Gmail mocks returning an attachment with encoded name."""
     import types, base64, sys
 
+    bad_name = "  inv*alid?  " + "x" * 150 + ".txt  "
     google = types.ModuleType('google')
     oauth2 = types.ModuleType('google.oauth2')
     creds_mod = types.ModuleType('google.oauth2.credentials')
@@ -350,7 +351,6 @@ def _setup_gmail_bad_filename(monkeypatch):
                 data = base64.urlsafe_b64encode(b"file").decode()
                 return Execute({"data": data})
 
-        bad_name = "inv*alid?.txt"
         encoded = "=?utf-8?b?" + base64.b64encode(bad_name.encode()).decode() + "?="
 
         class Messages:
@@ -400,6 +400,8 @@ def _setup_gmail_bad_filename(monkeypatch):
     }
     for name, mod in modules.items():
         monkeypatch.setitem(sys.modules, name, mod)
+
+    return bad_name
 
 
 def test_slack_notify(monkeypatch):
@@ -624,7 +626,7 @@ def test_gmail_archive_token_from_message(monkeypatch, tmp_path):
 
 
 def test_gmail_archive_sanitizes_attachment_name(monkeypatch, tmp_path):
-    _setup_gmail_bad_filename(monkeypatch)
+    bad_name = _setup_gmail_bad_filename(monkeypatch)
     import importlib
     module = importlib.import_module('pyzap.plugins.gmail_archive')
     module = importlib.reload(module)
@@ -633,7 +635,8 @@ def test_gmail_archive_sanitizes_attachment_name(monkeypatch, tmp_path):
     action = action_cls({'token_file': 'token.json', 'local_dir': str(tmp_path)})
     result = action.execute({'id': '123'})
     folder = tmp_path / '123'
-    expected = safe_filename('inv*alid?.txt')
+    expected = safe_filename(bad_name)
+    assert len(expected) <= 100
     assert (folder / expected).read_bytes() == b'file'
     assert result['attachments'] == [expected]
     assert result['attachment_paths'] == [str(folder / expected)]
@@ -723,6 +726,8 @@ def test_imap_archive_sanitizes_attachment_name(monkeypatch, tmp_path):
     import base64
 
     captured = {}
+    bad_name = "  inv*alid?" + "x" * 150 + ".txt  "
+    encoded = "=?utf-8?b?" + base64.b64encode(bad_name.encode()).decode() + "?="
 
     class DummyIMAP:
         def __init__(self, host, port):
@@ -735,8 +740,6 @@ def test_imap_archive_sanitizes_attachment_name(monkeypatch, tmp_path):
             pass
 
         def fetch(self, num, parts):
-            bad_name = "inv*alid?.txt"
-            encoded = "=?utf-8?b?" + base64.b64encode(bad_name.encode()).decode() + "?="
             msg = (
                 b"Subject: s\r\nFrom: f\r\nDate: d\r\n"
                 b"Content-Type: multipart/mixed; boundary=ab\r\n\r\n"
@@ -757,7 +760,8 @@ def test_imap_archive_sanitizes_attachment_name(monkeypatch, tmp_path):
     action = ImapArchiveAction({'host': 'h', 'username': 'u', 'password': 'p', 'local_dir': str(tmp_path), 'port': 123})
     result = action.execute({'id': '1'})
     folder = tmp_path / '1'
-    expected = safe_filename("inv*alid?.txt")
+    expected = safe_filename(bad_name)
+    assert len(expected) <= 100
     assert (folder / expected).exists()
     assert result['attachments'] == [expected]
 
