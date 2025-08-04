@@ -598,6 +598,51 @@ def test_imap_archive(monkeypatch, tmp_path):
     assert captured['port'] == 123
 
 
+def test_imap_archive_sanitizes_attachment_name(monkeypatch, tmp_path):
+    from pyzap.plugins.imap_archive import ImapArchiveAction
+    from pyzap.utils import safe_filename
+    import base64
+
+    captured = {}
+
+    class DummyIMAP:
+        def __init__(self, host, port):
+            captured["port"] = port
+
+        def login(self, u, p):
+            pass
+
+        def select(self, mbox):
+            pass
+
+        def fetch(self, num, parts):
+            bad_name = "inv*alid?.txt"
+            encoded = "=?utf-8?b?" + base64.b64encode(bad_name.encode()).decode() + "?="
+            msg = (
+                b"Subject: s\r\nFrom: f\r\nDate: d\r\n"
+                b"Content-Type: multipart/mixed; boundary=ab\r\n\r\n"
+                b"--ab\r\nContent-Type: text/plain\r\n\r\nbody\r\n"
+                b"--ab\r\nContent-Type: text/plain; name=\"" + encoded.encode() + b"\"\r\n"
+                b"Content-Disposition: attachment; filename=\"" + encoded.encode() + b"\"\r\n\r\nfile\r\n"
+                b"--ab--"
+            )
+            return ("OK", [(b"1", msg)])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(imaplib, 'IMAP4_SSL', lambda host, port=993: DummyIMAP(host, port))
+    action = ImapArchiveAction({'host': 'h', 'username': 'u', 'password': 'p', 'local_dir': str(tmp_path), 'port': 123})
+    result = action.execute({'id': '1'})
+    folder = tmp_path / '1'
+    expected = safe_filename("inv*alid?.txt")
+    assert (folder / expected).exists()
+    assert result['attachments'] == [expected]
+
+
 def test_imap_archive_skip_attachments(monkeypatch, tmp_path):
     from pyzap.plugins.imap_archive import ImapArchiveAction
 
