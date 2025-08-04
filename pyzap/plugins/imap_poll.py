@@ -25,8 +25,9 @@ class ImapPollTrigger(BaseTrigger):
         - ``max_results`` (optional): maximum number of messages to return,
           defaults to ``100``.
         - ``has_attachment`` (optional): filter messages by presence of
-          attachments. ``true`` keeps only messages with attachments while
-          ``false`` keeps only those without.
+          attachments. Accepts ``1``, ``true`` or ``yes`` to keep only messages
+          with attachments, and ``0``, ``false`` or ``no`` to keep only those
+          without.
         """
 
         host = self.config.get("host")
@@ -42,14 +43,16 @@ class ImapPollTrigger(BaseTrigger):
             max_results = int(self.config.get("max_results", 100))
         except Exception:
             max_results = 100
+        truthy = {"1", "true", "yes"}
+        falsy = {"0", "false", "no"}
         has_attachment_cfg = self.config.get("has_attachment")
         has_attachment_filter = None
         if has_attachment_cfg is not None:
-            has_attachment_filter = str(has_attachment_cfg).lower() in (
-                "1",
-                "true",
-                "yes",
-            )
+            lower = str(has_attachment_cfg).lower()
+            if lower in truthy:
+                has_attachment_filter = True
+            elif lower in falsy:
+                has_attachment_filter = False
 
         logging.info(
             "Polling IMAP %s mailbox %s with search '%s'",
