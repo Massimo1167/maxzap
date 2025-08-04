@@ -82,32 +82,41 @@ class ImapPollTrigger(BaseTrigger):
                     if msg.is_multipart():
                         body = ""
                         has_attachments = False
+                        # Identify attachments via content disposition
+                        # (inline with filename is also treated as attachment)
                         for part in msg.walk():
-                            content_disposition = part.get("Content-Disposition", "")
+                            cd = part.get_content_disposition()
+                            filename = part.get_filename() or part.get_param("name")
                             if (
                                 part.get_content_type() == "text/plain"
-                                and "attachment" not in content_disposition.lower()
                                 and not body
+                                and not (
+                                    cd in ("attachment", "inline") and filename
+                                )
                             ):
                                 payload_bytes = part.get_payload(decode=True)
                                 if payload_bytes is not None:
                                     body = payload_bytes.decode(errors="replace")
-                            elif (
-                                "attachment" in content_disposition.lower()
-                                or part.get_filename()
-                            ):
+                            elif cd in ("attachment", "inline") and filename:
                                 has_attachments = True
                     else:
                         payload_bytes = msg.get_payload(decode=True)
-                        body = (
-                            payload_bytes.decode(errors="replace")
-                            if payload_bytes is not None
-                            else ""
-                        )
-        
-                        cd = msg.get("Content-Disposition", "")
-                        has_attachments = "attachment" in cd.lower() or bool(
-                            msg.get_filename()
+                        # Apply the same attachment detection for single-part messages
+                        cd = msg.get_content_disposition()
+                        filename = msg.get_filename() or msg.get_param("name")
+                        if (
+                            msg.get_content_type() == "text/plain"
+                            and not (cd in ("attachment", "inline") and filename)
+                        ):
+                            body = (
+                                payload_bytes.decode(errors="replace")
+                                if payload_bytes is not None
+                                else ""
+                            )
+                        else:
+                            body = ""
+                        has_attachments = cd in ("attachment", "inline") and bool(
+                            filename
                         )
 
                     if (
