@@ -40,6 +40,8 @@ python -m pyzap.cli run config.json
 ```
 
 The log file `pyzap.log` records activity. Pass `--step` to pause between steps for debugging.
+`--iterations` limits how many times workflows run (`0` means endless) and
+`--repeat-interval` sets the delay in seconds between cycles when repeating.
 
 ## Example configuration
 

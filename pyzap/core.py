@@ -240,7 +240,14 @@ def load_plugins() -> None:
                 ACTIONS[to_snake_case(plugin_name)] = obj
 
 
-def main_loop(config_path: str, *, log_level: str = "INFO", step_mode: bool = False) -> None:
+def main_loop(
+    config_path: str,
+    *,
+    log_level: str = "INFO",
+    step_mode: bool = False,
+    iterations: int = 0,
+    repeat_interval: float = 1.0,
+) -> None:
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)
     setup_logging(log_level=numeric_level)
     load_plugins()
@@ -255,10 +262,13 @@ def main_loop(config_path: str, *, log_level: str = "INFO", step_mode: bool = Fa
 
     signal.signal(signal.SIGTERM, _handle_sigterm)
 
-    while not stop_loop:
+    count = 0
+    while not stop_loop and (iterations == 0 or count < iterations):
         try:
             engine.run_all()
-            time.sleep(1)
+            count += 1
+            if not stop_loop and (iterations == 0 or count < iterations):
+                time.sleep(repeat_interval)
         except KeyboardInterrupt:
             engine.stop()
             break

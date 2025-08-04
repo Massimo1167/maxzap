@@ -116,6 +116,9 @@ Runtime logs are written to `pyzap.log`. Use the `--log-level` option of
 `pyzap run` to change verbosity (e.g. `DEBUG` for very detailed output).
 Passing `--step` pauses execution after every workflow step so you can inspect
 the log before continuing. This is useful when troubleshooting new workflows.
+`--iterations` limits how many cycles are executed (with `0` meaning run
+forever) and `--repeat-interval` adjusts the delay between cycles in seconds
+when repeating.
 
 ## Generating a Gmail API token
 
