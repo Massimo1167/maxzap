@@ -8,20 +8,7 @@ from typing import Any, Dict, List
 from ..core import BaseAction
 from ..pdf_utils import extract_table_row, parse_invoice_text
 from ..formatter import parse_date
-
-
-_INVALID_CHARS = re.compile(r'[\\/*?:"<>|]')
-
-
-def _safe_filename(name: str, max_length: int = 100) -> str:
-    """Return a filesystem-safe version of ``name`` limited in length."""
-    name = re.sub(r"\s+", " ", name.strip())
-    name = _INVALID_CHARS.sub("_", name)
-    if len(name) > max_length:
-        base, ext = os.path.splitext(name)
-        name = base[: max_length - len(ext)] + ext
-    return name
-
+from ..utils import safe_filename
 
 
 def _flatten_dict(data: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
@@ -93,7 +80,7 @@ class PDFSplitAction(BaseAction):
                                     pass
                             fields.setdefault(k, v)
                     info = {**data, **fields, "index": index}
-                    filename = _safe_filename(name_template.format_map(defaultdict(str, info)))
+                    filename = safe_filename(name_template.format_map(defaultdict(str, info)))
                     path = os.path.join(output_dir, filename)
                     with open(path, "wb") as out_fh:
                         writer.write(out_fh)
@@ -140,7 +127,7 @@ class PDFSplitAction(BaseAction):
                             pass
                     fields.setdefault(k, v)
             info = {**data, **fields, "index": index}
-            filename = _safe_filename(name_template.format_map(defaultdict(str, info)))
+            filename = safe_filename(name_template.format_map(defaultdict(str, info)))
             path = os.path.join(output_dir, filename)
             with open(path, "wb") as out_fh:
                 writer.write(out_fh)
