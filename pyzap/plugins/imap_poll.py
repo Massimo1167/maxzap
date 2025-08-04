@@ -24,6 +24,9 @@ class ImapPollTrigger(BaseTrigger):
         - ``search`` (optional): IMAP search query, defaults to ``UNSEEN``.
         - ``max_results`` (optional): maximum number of messages to return,
           defaults to ``100``.
+        - ``has_attachment`` (optional): filter messages by presence of
+          attachments. ``true`` keeps only messages with attachments while
+          ``false`` keeps only those without.
         """
 
         host = self.config.get("host")
@@ -39,6 +42,14 @@ class ImapPollTrigger(BaseTrigger):
             max_results = int(self.config.get("max_results", 100))
         except Exception:
             max_results = 100
+        has_attachment_cfg = self.config.get("has_attachment")
+        has_attachment_filter = None
+        if has_attachment_cfg is not None:
+            has_attachment_filter = str(has_attachment_cfg).lower() in (
+                "1",
+                "true",
+                "yes",
+            )
 
         logging.info(
             "Polling IMAP %s mailbox %s with search '%s'",
@@ -70,12 +81,22 @@ class ImapPollTrigger(BaseTrigger):
                     msg = email.message_from_bytes(msg_data[0][1])
                     if msg.is_multipart():
                         body = ""
+                        has_attachments = False
                         for part in msg.walk():
-                            if part.get_content_type() == "text/plain":
+                            content_disposition = part.get("Content-Disposition", "")
+                            if (
+                                part.get_content_type() == "text/plain"
+                                and "attachment" not in content_disposition.lower()
+                                and not body
+                            ):
                                 payload_bytes = part.get_payload(decode=True)
                                 if payload_bytes is not None:
                                     body = payload_bytes.decode(errors="replace")
-                                break
+                            elif (
+                                "attachment" in content_disposition.lower()
+                                or part.get_filename()
+                            ):
+                                has_attachments = True
                     else:
                         payload_bytes = msg.get_payload(decode=True)
                         body = (
@@ -83,6 +104,18 @@ class ImapPollTrigger(BaseTrigger):
                             if payload_bytes is not None
                             else ""
                         )
+        
+                        cd = msg.get("Content-Disposition", "")
+                        has_attachments = "attachment" in cd.lower() or bool(
+                            msg.get_filename()
+                        )
+
+                    if (
+                        has_attachment_filter is not None
+                        and has_attachments != has_attachment_filter
+                    ):
+                        continue
+
                     payload = {
                         "id": num.decode(),
                         "subject": msg.get("Subject", ""),
