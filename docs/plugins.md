@@ -45,8 +45,9 @@ This page lists all available triggers and actions provided by PyZap.
   - `mailbox` (optional): Mailbox to select, defaults to `INBOX`.
   - `search` (optional): IMAP search query, defaults to `UNSEEN`.
   - `max_results` (optional): Maximum number of messages to return.
-  - `has_attachment` (optional): `true` to keep only messages with attachments,
-    `false` to keep only those without.
+  - `has_attachment` (optional): Filter messages by presence of attachments.
+    Accepts `1`, `true` or `yes` to keep only messages with attachments, and `0`,
+    `false` or `no` to keep only those without.
 
 ## Actions
 
