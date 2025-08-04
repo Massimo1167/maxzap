@@ -4,12 +4,12 @@
       "id": "aruba-imap",
       "trigger": {
         "type": "imap_poll",
-		"max_results": 10,
+		"max_results": 100,
         "host": "in.postassl.it",
         "port": 993,
         "username": "${IMAP_EMAIL_01}",
         "password": "${IMAP_PASSWORD_01}",
-        "search": "UNSEEN"
+        "search": "UNSEEN FROM \"dario.napoletano@alstomgroup.com\" SINCE 1-Jun-2025 BEFORE 1-Jul-2025 SUBJECT \"ONAE\" BODY \"ONAE\""
       },
       "actions": [
         {
