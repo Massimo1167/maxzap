@@ -299,6 +299,109 @@ def _setup_gmail_html(monkeypatch):
         monkeypatch.setitem(sys.modules, name, mod)
 
 
+def _setup_gmail_bad_filename(monkeypatch):
+    """Setup Gmail mocks returning an attachment with encoded name."""
+    import types, base64, sys
+
+    google = types.ModuleType('google')
+    oauth2 = types.ModuleType('google.oauth2')
+    creds_mod = types.ModuleType('google.oauth2.credentials')
+
+    class DummyCreds:
+        expired = False
+        refresh_token = None
+
+        def refresh(self, req):
+            pass
+
+        @staticmethod
+        def from_authorized_user_file(path, scopes):
+            return DummyCreds()
+
+    creds_mod.Credentials = DummyCreds
+    oauth2.credentials = creds_mod
+    google.oauth2 = oauth2
+
+    auth = types.ModuleType('google.auth')
+    transport = types.ModuleType('google.auth.transport')
+    req_mod = types.ModuleType('google.auth.transport.requests')
+
+    class Request:
+        pass
+
+    req_mod.Request = Request
+    transport.requests = req_mod
+    auth.transport = transport
+    google.auth = auth
+
+    gapi = types.ModuleType('googleapiclient')
+    disc = types.ModuleType('googleapiclient.discovery')
+
+    def fake_build(*args, **kwargs):
+        class Execute:
+            def __init__(self, data):
+                self.data = data
+
+            def execute(self):
+                return self.data
+
+        class Attachments:
+            def get(self, userId="me", messageId=None, id=None):
+                data = base64.urlsafe_b64encode(b"file").decode()
+                return Execute({"data": data})
+
+        bad_name = "inv*alid?.txt"
+        encoded = "=?utf-8?b?" + base64.b64encode(bad_name.encode()).decode() + "?="
+
+        class Messages:
+            def get(self, userId="me", id=None, format=None):
+                return Execute(
+                    {
+                        "id": id,
+                        "snippet": "ignored",
+                        "payload": {
+                            "headers": [
+                                {"name": "From", "value": "f"},
+                                {"name": "Subject", "value": "s"},
+                                {"name": "Date", "value": "d"},
+                            ],
+                            "parts": [
+                                {"filename": encoded, "body": {"attachmentId": "1"}},
+                            ],
+                        },
+                    }
+                )
+
+            def attachments(self):
+                return Attachments()
+
+        class Users:
+            def messages(self):
+                return Messages()
+
+        class Service:
+            def users(self):
+                return Users()
+
+        return Service()
+
+    disc.build = fake_build
+    gapi.discovery = disc
+
+    modules = {
+        'google': google,
+        'google.oauth2': oauth2,
+        'google.oauth2.credentials': creds_mod,
+        'google.auth': auth,
+        'google.auth.transport': transport,
+        'google.auth.transport.requests': req_mod,
+        'googleapiclient': gapi,
+        'googleapiclient.discovery': disc,
+    }
+    for name, mod in modules.items():
+        monkeypatch.setitem(sys.modules, name, mod)
+
+
 def test_slack_notify(monkeypatch):
     store = {}
     _patch_urlopen(monkeypatch, store)
@@ -518,6 +621,22 @@ def test_gmail_archive_token_from_message(monkeypatch, tmp_path):
     assert folder.exists()
     assert result['sender'] == 'f'
     assert result['attachment_paths'] == [str(folder / 'a.txt')]
+
+
+def test_gmail_archive_sanitizes_attachment_name(monkeypatch, tmp_path):
+    _setup_gmail_bad_filename(monkeypatch)
+    import importlib
+    module = importlib.import_module('pyzap.plugins.gmail_archive')
+    module = importlib.reload(module)
+    action_cls = module.GmailArchiveAction
+    from pyzap.utils import safe_filename
+    action = action_cls({'token_file': 'token.json', 'local_dir': str(tmp_path)})
+    result = action.execute({'id': '123'})
+    folder = tmp_path / '123'
+    expected = safe_filename('inv*alid?.txt')
+    assert (folder / expected).read_bytes() == b'file'
+    assert result['attachments'] == [expected]
+    assert result['attachment_paths'] == [str(folder / expected)]
 
 
 def test_gmail_archive_html_link_header(monkeypatch, tmp_path):
