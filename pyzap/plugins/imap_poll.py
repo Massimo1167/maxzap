@@ -68,11 +68,26 @@ class ImapPollTrigger(BaseTrigger):
                     if status != "OK" or not msg_data:
                         continue
                     msg = email.message_from_bytes(msg_data[0][1])
+                    if msg.is_multipart():
+                        body = ""
+                        for part in msg.walk():
+                            if part.get_content_type() == "text/plain":
+                                payload_bytes = part.get_payload(decode=True)
+                                if payload_bytes is not None:
+                                    body = payload_bytes.decode(errors="replace")
+                                break
+                    else:
+                        payload_bytes = msg.get_payload(decode=True)
+                        body = (
+                            payload_bytes.decode(errors="replace")
+                            if payload_bytes is not None
+                            else ""
+                        )
                     payload = {
                         "id": num.decode(),
                         "subject": msg.get("Subject", ""),
                         "from": msg.get("From", ""),
-                        "body": msg.get_payload(decode=True).decode(errors="replace"),
+                        "body": body,
                     }
                     messages.append(payload)
 
