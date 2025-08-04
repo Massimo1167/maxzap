@@ -4,6 +4,7 @@
       "id": "aruba-imap",
       "trigger": {
         "type": "imap_poll",
+		"max_results": 10,
         "host": "in.postassl.it",
         "port": 993,
         "username": "${IMAP_EMAIL_01}",
