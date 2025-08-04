@@ -18,13 +18,13 @@
             "port": 993,
             "username": "${IMAP_EMAIL_01}",
             "password": "${IMAP_PASSWORD_01}",
-            "local_dir": "./IMAP/email_attachments"
+            "local_dir": "../IMAP/email_attachments"
           }
         },
         {
           "type": "excel_append",
           "params": {
-            "file": "./IMAP/emails.xlsx",
+            "file": "../IMAP/emails.xlsx",
             "fields": [
               "datetime",
               "sender",
