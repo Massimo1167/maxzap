@@ -27,7 +27,7 @@
           "_comment_action_gmail_archive": "Questa action salva messaggi, allegati (specificando estensioni ammesse) ed allegati tramite link, in una directory locale.",
           "type": "gmail_archive",
           "params": {
-            "local_dir": "../gmail/archive",
+            "local_dir": "../gmail/azienda.agricola/archive",
             "attachment_types": [
               ".pdf"
             ],
@@ -40,7 +40,7 @@
           "_comment_action_excel_append": "Questa action salva i campi del dizionario dell'azione precedente in un file excel , in un foglio definito e specificando i campi richiesti.",
           "type": "excel_append",
           "params": {
-            "file": "../gmail/log.xlsm",
+            "file": "../gmail/azienda.agricola/log.xlsm",
             "sheet": "Archivio",
             "fields": [
               "datetime",
@@ -57,7 +57,7 @@
           "_comment_action_pdf_split_2": "Se richiesto analizza ogni file splittato come fattura elettronica e popola un dizionario dal quale attingere per rinominare il file",
           "type": "pdf_split",
           "params": {
-            "output_dir": "../fatture/split",
+            "output_dir": "../gmail/azienda.agricola/fatture/split",
             "pattern": "Cedente/prestatore \\(fornitore\\)",
             "parse_invoice": true,
             "name_template": "{documento_data} Fattura {documento_numero} {fornitore_denominazione}.pdf",
@@ -70,7 +70,7 @@
           "_comment_action_excel_append": "Questa action salva i campi del dizionario dell'azione precedente in un file excel , in un foglio definito e specificando i campi richiesti.",
           "type": "excel_append",
           "params": {
-            "file": "../fatture/fatture.xlsm",
+            "file": "../gmail/azienda.agricola/fatture/fatture.xlsm",
             "sheet": "Fatture",
             "fields": [
               "documento_data",
