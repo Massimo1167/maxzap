@@ -23,7 +23,7 @@ REM pytest tests/test_trigger.py::test_gmail_poll_success
 REM python -m pyzap.cli config.json run --log-level DEBUG --step
 
 REM python -m pyzap.cli azienda.agricola-splitpdf.json run 
-python -m pyzap.cli config.imap.json run --iterations 1 --repeat-interval 180 
+python -m pyzap.cli config.azienda.agricola-splitpdf.json run --iterations 1 --repeat-interval 180 
 
 REM -- 4. Mantieni aperta la finestra per leggere eventuali messaggi
 echo.

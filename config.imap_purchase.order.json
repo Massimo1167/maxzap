@@ -9,7 +9,8 @@
         "port": 993,
         "username": "${IMAP_EMAIL_PURCHASE}",
         "password": "${IMAP_PASSWORD_PURCHASE}",
-        "search": "SINCE 1-Jan-2025"
+        "search": "SINCE 1-Jan-2025",
+		"has_attachment": true
 		
       },
       "actions": [
