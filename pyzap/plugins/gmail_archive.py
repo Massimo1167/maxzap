@@ -11,6 +11,7 @@ from urllib import request
 from urllib.parse import urlparse
 import re
 import html
+from email.header import decode_header, make_header
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -18,6 +19,7 @@ from googleapiclient.discovery import build
 
 from ..core import BaseAction
 from .gdrive_upload import GDriveUploadAction
+from ..utils import safe_filename
 
 
 class GmailArchiveAction(BaseAction):
@@ -138,13 +140,15 @@ class GmailArchiveAction(BaseAction):
         files: List[tuple[str, bytes]] = []
         if save_attachments:
             for part in msg.get("payload", {}).get("parts", []):
-                filename = part.get("filename")
+                raw_name = part.get("filename")
                 att_id = part.get("body", {}).get("attachmentId")
-                if filename and att_id:
+                if raw_name and att_id:
+                    decoded = str(make_header(decode_header(raw_name)))
                     if ext_filter and not any(
-                        filename.lower().endswith(ext) for ext in ext_filter
+                        decoded.lower().endswith(ext) for ext in ext_filter
                     ):
                         continue
+                    filename = safe_filename(decoded)
                     raw = (
                         service.users()
                         .messages()
@@ -184,6 +188,7 @@ class GmailArchiveAction(BaseAction):
                             name = os.path.basename(m.group(1))
                     if not name:
                         name = "downloaded_file"
+                    name = safe_filename(name)
                     ext = Path(name).suffix.lower()
                     if ext_filter and ext not in ext_filter:
                         continue

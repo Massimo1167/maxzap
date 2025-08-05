@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from pyzap.plugins.pdf_split import PDFSplitAction
+from pyzap.utils import safe_filename
 
 
 def _create_pdf(path: Path, pages: int = 1) -> None:
@@ -39,4 +40,18 @@ def test_pdf_split_closes_input_file(tmp_path):
     # ensure the action produced an output file and no file descriptors leaked
     assert result["files"], "Expected at least one output file"
     assert after == before
+
+
+def test_pdf_split_sanitizes_filename(tmp_path):
+    pdf_path = tmp_path / "input.pdf"
+    _create_pdf(pdf_path, pages=1)
+    output_dir = tmp_path / "out"
+
+    template = "  inv*alid?{index}" + "x" * 150 + ".pdf  "
+    action = PDFSplitAction(params={"output_dir": str(output_dir), "name_template": template})
+    result = action.execute({"pdf_path": str(pdf_path)})
+
+    expected = safe_filename(template.format(index=1))
+    assert len(expected) <= 100
+    assert os.path.basename(result["files"][0]) == expected
 

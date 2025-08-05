@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator
 import os
+import re
 import time
 
 try:
@@ -48,3 +49,21 @@ def excel_lock(path: str, timeout: int = 10) -> Iterator[None]:
     lock = FileLock(f"{path}.lock", timeout=timeout)
     with lock:
         yield
+
+
+_INVALID_CHARS = re.compile(r'[\\/*?:"<>|]')
+
+
+def safe_filename(name: str, max_length: int = 100) -> str:
+    """Return a filesystem-safe version of ``name``.
+
+    The returned name has surrounding whitespace trimmed, internal whitespace
+    collapsed, Windows-invalid characters replaced with underscores, and is
+    truncated to ``max_length`` characters while preserving any file extension.
+    """
+    name = re.sub(r"\s+", " ", name.strip())
+    name = _INVALID_CHARS.sub("_", name)
+    if len(name) > max_length:
+        base, ext = os.path.splitext(name)
+        name = base[: max_length - len(ext)] + ext
+    return name

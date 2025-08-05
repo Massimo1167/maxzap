@@ -78,8 +78,10 @@ Two built-in triggers allow fetching messages from email servers:
 * `imap_poll` &ndash; connects to any IMAP server using username and password.
   Required options are `host`, `username` and `password`. Optional keys are
   `port` (defaults to `993`), `mailbox` (defaults to `INBOX`), `search`
-  (defaults to `UNSEEN`) and `max_results` to limit how many messages are
-  fetched (defaults to `100`).
+  (defaults to `UNSEEN`), `max_results` to limit how many messages are
+  fetched (defaults to `100`) and `has_attachment` to filter messages by
+  attachment presence (`true` keeps only messages with attachments,
+  `false` keeps only those without).
 
 ## Archive and spreadsheet actions
 
@@ -116,6 +118,9 @@ Runtime logs are written to `pyzap.log`. Use the `--log-level` option of
 `pyzap run` to change verbosity (e.g. `DEBUG` for very detailed output).
 Passing `--step` pauses execution after every workflow step so you can inspect
 the log before continuing. This is useful when troubleshooting new workflows.
+`--iterations` limits how many cycles are executed (with `0` meaning run
+forever) and `--repeat-interval` adjusts the delay between cycles in seconds
+when repeating.
 
 ## Generating a Gmail API token
 

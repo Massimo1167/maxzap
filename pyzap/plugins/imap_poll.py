@@ -24,6 +24,10 @@ class ImapPollTrigger(BaseTrigger):
         - ``search`` (optional): IMAP search query, defaults to ``UNSEEN``.
         - ``max_results`` (optional): maximum number of messages to return,
           defaults to ``100``.
+        - ``has_attachment`` (optional): filter messages by presence of
+          attachments. Accepts ``1``, ``true`` or ``yes`` to keep only messages
+          with attachments, and ``0``, ``false`` or ``no`` to keep only those
+          without.
         """
 
         host = self.config.get("host")
@@ -39,6 +43,16 @@ class ImapPollTrigger(BaseTrigger):
             max_results = int(self.config.get("max_results", 100))
         except Exception:
             max_results = 100
+        truthy = {"1", "true", "yes"}
+        falsy = {"0", "false", "no"}
+        has_attachment_cfg = self.config.get("has_attachment")
+        has_attachment_filter = None
+        if has_attachment_cfg is not None:
+            lower = str(has_attachment_cfg).lower()
+            if lower in truthy:
+                has_attachment_filter = True
+            elif lower in falsy:
+                has_attachment_filter = False
 
         logging.info(
             "Polling IMAP %s mailbox %s with search '%s'",
@@ -70,19 +84,51 @@ class ImapPollTrigger(BaseTrigger):
                     msg = email.message_from_bytes(msg_data[0][1])
                     if msg.is_multipart():
                         body = ""
+                        has_attachments = False
+                        # Identify attachments via content disposition
+                        # (inline with filename is also treated as attachment)
                         for part in msg.walk():
-                            if part.get_content_type() == "text/plain":
+                            cd = part.get_content_disposition()
+                            filename = part.get_filename() or part.get_param("name")
+                            is_attachment = bool(
+                                filename
+                                and (cd in ("attachment", "inline") or cd is None)
+                            )
+                            if (
+                                part.get_content_type() == "text/plain"
+                                and not body
+                                and not is_attachment
+                            ):
                                 payload_bytes = part.get_payload(decode=True)
                                 if payload_bytes is not None:
                                     body = payload_bytes.decode(errors="replace")
-                                break
+                            elif is_attachment:
+                                has_attachments = True
                     else:
                         payload_bytes = msg.get_payload(decode=True)
-                        body = (
-                            payload_bytes.decode(errors="replace")
-                            if payload_bytes is not None
-                            else ""
+                        # Apply the same attachment detection for single-part messages
+                        cd = msg.get_content_disposition()
+                        filename = msg.get_filename() or msg.get_param("name")
+                        is_attachment = bool(
+                            filename
+                            and (cd in ("attachment", "inline") or cd is None)
                         )
+                        if msg.get_content_type() == "text/plain" and not is_attachment:
+                            body = (
+                                payload_bytes.decode(errors="replace")
+                                if payload_bytes is not None
+                                else ""
+                            )
+                        else:
+                            body = ""
+                        has_attachments = is_attachment
+
+                    if (
+                        has_attachment_filter is not None
+                        and has_attachments != has_attachment_filter
+                    ):
+                        continue
+
                     payload = {
                         "id": num.decode(),
                         "subject": msg.get("Subject", ""),
