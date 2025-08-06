@@ -7,4 +7,3 @@ credentials*.json
 credentials.json
 credentials.json.old
 token.json
-imap_poll_debug.py
