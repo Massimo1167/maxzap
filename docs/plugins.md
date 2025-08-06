@@ -48,6 +48,8 @@ This page lists all available triggers and actions provided by PyZap.
   - `has_attachment` (optional): Filter messages by presence of attachments.
     Accepts `1`, `true` or `yes` to keep only messages with attachments, and `0`,
     `false` or `no` to keep only those without.
+  - `mark_seen` (optional): Mark messages as read when fetching. Defaults to
+    `true`; set to `false` to leave them unread using `BODY.PEEK[]`.
 
 ## Actions
 

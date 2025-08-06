@@ -9,7 +9,8 @@
         "port": 993,
         "username": "${IMAP_EMAIL_PURCHASE}",
         "password": "${IMAP_PASSWORD_PURCHASE}",
-        "search": "UNSEEN FROM \"dario.napoletano@alstomgroup.com\" SINCE 1-Jun-2025 BEFORE 1-Jul-2025 SUBJECT \"ONAE\" BODY \"ONAE\""
+        "search": "UNSEEN FROM \"dario.napoletano@alstomgroup.com\" SINCE 1-Jun-2025 BEFORE 1-Jul-2025 SUBJECT \"ONAE\" BODY \"ONAE\"",
+        "mark_seen": false
       },
       "actions": [
         {

@@ -497,6 +497,86 @@ def test_imap_poll_name_parameter_attachment(monkeypatch):
     assert [m["id"] for m in msgs] == ["2"]
 
 
+def test_imap_poll_mark_seen_true(monkeypatch):
+    from pyzap.plugins.imap_poll import ImapPollTrigger
+
+    captured = {}
+
+    class DummyIMAP:
+        def __init__(self, host, port):
+            captured["client"] = self
+            self.seen = False
+            self.parts = []
+
+        def login(self, user, pwd):
+            pass
+
+        def select(self, mbox):
+            pass
+
+        def search(self, charset, query):
+            return ("OK", [b"1"])
+
+        def fetch(self, num, parts):
+            self.parts.append(parts)
+            if parts == "(RFC822)":
+                self.seen = True
+            return ("OK", [(num, b"Subject: s\r\nFrom: f\r\n\r\nBody")])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(imaplib, "IMAP4_SSL", lambda host, port=993: DummyIMAP(host, port))
+    trigger = ImapPollTrigger({"host": "h", "username": "u", "password": "p", "mark_seen": True})
+    trigger.poll()
+    client = captured["client"]
+    assert client.seen
+    assert client.parts == ["(RFC822)"]
+
+
+def test_imap_poll_mark_seen_false(monkeypatch):
+    from pyzap.plugins.imap_poll import ImapPollTrigger
+
+    captured = {}
+
+    class DummyIMAP:
+        def __init__(self, host, port):
+            captured["client"] = self
+            self.seen = False
+            self.parts = []
+
+        def login(self, user, pwd):
+            pass
+
+        def select(self, mbox):
+            pass
+
+        def search(self, charset, query):
+            return ("OK", [b"1"])
+
+        def fetch(self, num, parts):
+            self.parts.append(parts)
+            if parts == "(RFC822)":
+                self.seen = True
+            return ("OK", [(num, b"Subject: s\r\nFrom: f\r\n\r\nBody")])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(imaplib, "IMAP4_SSL", lambda host, port=993: DummyIMAP(host, port))
+    trigger = ImapPollTrigger({"host": "h", "username": "u", "password": "p", "mark_seen": False})
+    trigger.poll()
+    client = captured["client"]
+    assert not client.seen
+    assert client.parts == ["(BODY.PEEK[])"]
+
+
 def test_imap_poll_missing_config():
     from pyzap.plugins.imap_poll import ImapPollTrigger
 
