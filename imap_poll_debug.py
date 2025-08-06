@@ -34,11 +34,11 @@ def poll(has_attachment: bool):
     logging.info("=== Avvio poll con has_attachment=%s ===", has_attachment)
     trigger = ImapPollTrigger(
         {
-            "host": os.getenv("IMAP_HOST", "in.postassl.it"),
-            "port": int(os.getenv("IMAP_PORT", "993")),
-            "username": os.getenv("IMAP_EMAIL"),
-            "password": os.getenv("IMAP_PASSWORD"),
-            "search": os.getenv("IMAP_SEARCH", "UNSEEN"),
+            "host": os.getenv("IMAP_HOST_PURCHASE", "in.postassl.it"),
+            "port": int(os.getenv("IMAP_PORT_PURCHASE", "993")),
+            "username": os.getenv("IMAP_EMAIL_PURCHASE"),
+            "password": os.getenv("IMAP_PASSWORD_PURCHASE"),
+            "search": os.getenv("IMAP_SEARCH_PURCHASE", "UNSEEN SINCE 1-Jun-2025"),
             "has_attachment": has_attachment,
             "mark_seen": False,
         }
