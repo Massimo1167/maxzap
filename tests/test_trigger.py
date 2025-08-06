@@ -210,7 +210,7 @@ def test_imap_poll(monkeypatch):
             pass
 
     monkeypatch.setattr(imaplib, "IMAP4_SSL", lambda host, port=993: DummyIMAP(host, port))
-    trigger = ImapPollTrigger({"host": "h", "username": "u", "password": "p", "port": 123})
+    trigger = ImapPollTrigger({"host": "h", "username": "u", "password": "p", "port": 123, "mark_seen": False})
     msgs = trigger.poll()
     assert [m["id"] for m in msgs] == ["1", "2"]
     assert captured["port"] == 123
