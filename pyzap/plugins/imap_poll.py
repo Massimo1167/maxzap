@@ -28,6 +28,8 @@ class ImapPollTrigger(BaseTrigger):
           attachments. Accepts ``1``, ``true`` or ``yes`` to keep only messages
           with attachments, and ``0``, ``false`` or ``no`` to keep only those
           without.
+        - ``mark_seen`` (optional): mark messages as read when fetching.
+          Defaults to ``true``; set to ``false`` to leave them unread.
         """
 
         host = self.config.get("host")
@@ -53,6 +55,9 @@ class ImapPollTrigger(BaseTrigger):
                 has_attachment_filter = True
             elif lower in falsy:
                 has_attachment_filter = False
+        mark_seen = (
+            str(self.config.get("mark_seen", True)).lower() not in falsy
+        )
 
         logging.info(
             "Polling IMAP %s mailbox %s with search '%s'",
@@ -78,7 +83,8 @@ class ImapPollTrigger(BaseTrigger):
                 logging.info("IMAP search returned %d messages", len(data[0].split()))
                 messages = []
                 for num in data[0].split()[:max_results]:
-                    status, msg_data = client.fetch(num, "(RFC822)")
+                    fetch_spec = "(RFC822)" if mark_seen else "(BODY.PEEK[])"
+                    status, msg_data = client.fetch(num, fetch_spec)
                     if status != "OK" or not msg_data:
                         continue
                     msg = email.message_from_bytes(msg_data[0][1])

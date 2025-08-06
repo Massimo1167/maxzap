@@ -10,8 +10,8 @@
         "username": "${IMAP_EMAIL_PURCHASE}",
         "password": "${IMAP_PASSWORD_PURCHASE}",
         "search": "SINCE 1-May-2025",
-		    "has_attachment": true
-		
+        "has_attachment": true,
+        "mark_seen": false
       },
       "actions": [
         {
