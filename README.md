@@ -79,9 +79,10 @@ Two built-in triggers allow fetching messages from email servers:
   Required options are `host`, `username` and `password`. Optional keys are
   `port` (defaults to `993`), `mailbox` (defaults to `INBOX`), `search`
   (defaults to `UNSEEN`), `max_results` to limit how many messages are
-  fetched (defaults to `100`) and `has_attachment` to filter messages by
+  fetched (defaults to `100`), `has_attachment` to filter messages by
   attachment presence (`true` keeps only messages with attachments,
-  `false` keeps only those without).
+  `false` keeps only those without) and `mark_seen` to control whether
+  fetched messages are marked as read (defaults to `true`).
 
 ## Archive and spreadsheet actions
 
