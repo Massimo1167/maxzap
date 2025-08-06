@@ -106,6 +106,14 @@ class ImapPollTrigger(BaseTrigger):
                                     )
                                 )
                             )
+                            logging.debug(
+                                "Message %s part: content_type=%s, cd=%s, filename=%s, is_attachment=%s",
+                                num.decode(),
+                                part.get_content_type(),
+                                cd,
+                                filename,
+                                is_attachment,
+                            )
                             if (
                                 part.get_content_type() == "text/plain"
                                 and not body
@@ -131,6 +139,14 @@ class ImapPollTrigger(BaseTrigger):
                                 )
                             )
                         )
+                        logging.debug(
+                            "Message %s single-part: content_type=%s, cd=%s, filename=%s, is_attachment=%s",
+                            num.decode(),
+                            msg.get_content_type(),
+                            cd,
+                            filename,
+                            is_attachment,
+                        )
                         if msg.get_content_type() == "text/plain" and not is_attachment:
                             body = (
                                 payload_bytes.decode(errors="replace")
@@ -145,6 +161,12 @@ class ImapPollTrigger(BaseTrigger):
                         has_attachment_filter is not None
                         and has_attachments != has_attachment_filter
                     ):
+                        logging.debug(
+                            "Skipping message %s due to attachment filter (has_attachments=%s, filter=%s)",
+                            num.decode(),
+                            has_attachments,
+                            has_attachment_filter,
+                        )
                         continue
 
                     payload = {
@@ -155,7 +177,11 @@ class ImapPollTrigger(BaseTrigger):
                     }
                     messages.append(payload)
 
-                    logging.debug("Fetched IMAP message %s", num.decode())
+                    logging.debug(
+                        "Fetched IMAP message %s (has_attachments=%s)",
+                        num.decode(),
+                        has_attachments,
+                    )
                 logging.info("IMAP polling returned %d messages", len(messages))
                 return messages
         except Exception as exc:  # pylint: disable=broad-except
