@@ -98,7 +98,13 @@ class ImapPollTrigger(BaseTrigger):
                             filename = part.get_filename() or part.get_param("name")
                             is_attachment = bool(
                                 filename
-                                and (cd in ("attachment", "inline") or cd is None)
+                                and (
+                                    cd in ("attachment", "inline")
+                                    or (
+                                        cd is None
+                                        and not part.get_content_type().startswith("text/")
+                                    )
+                                )
                             )
                             if (
                                 part.get_content_type() == "text/plain"
@@ -117,7 +123,13 @@ class ImapPollTrigger(BaseTrigger):
                         filename = msg.get_filename() or msg.get_param("name")
                         is_attachment = bool(
                             filename
-                            and (cd in ("attachment", "inline") or cd is None)
+                            and (
+                                cd in ("attachment", "inline")
+                                or (
+                                    cd is None
+                                    and not msg.get_content_type().startswith("text/")
+                                )
+                            )
                         )
                         if msg.get_content_type() == "text/plain" and not is_attachment:
                             body = (

@@ -364,6 +364,63 @@ def test_imap_poll_has_attachment(monkeypatch):
     assert [m["id"] for m in msgs] == ["2"]
 
 
+def test_imap_poll_html_name_not_attachment(monkeypatch):
+    from pyzap.plugins.imap_poll import ImapPollTrigger
+
+    class DummyIMAP:
+        def __init__(self, host, port):
+            pass
+
+        def login(self, user, pwd):
+            pass
+
+        def select(self, mbox):
+            pass
+
+        def search(self, charset, query):
+            return ("OK", [b"1"])
+
+        def fetch(self, num, parts):
+            msg = (
+                "Subject: s\r\n"
+                "From: f\r\n"
+                "MIME-Version: 1.0\r\n"
+                "Content-Type: multipart/alternative; boundary=\"b\"\r\n"
+                "\r\n"
+                "--b\r\n"
+                "Content-Type: text/plain\r\n"
+                "\r\n"
+                "Body\r\n"
+                "--b\r\n"
+                "Content-Type: text/html; name=\"a.html\"\r\n"
+                "\r\n"
+                "<p>HTML</p>\r\n"
+                "--b--\r\n"
+            ).encode("utf-8")
+            return ("OK", [(num, msg)])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    monkeypatch.setattr(
+        imaplib, "IMAP4_SSL", lambda host, port=993: DummyIMAP(host, port)
+    )
+
+    trigger = ImapPollTrigger(
+        {"host": "h", "username": "u", "password": "p"}
+    )
+    msgs = trigger.poll()
+    assert [m["id"] for m in msgs] == ["1"]
+
+    trigger = ImapPollTrigger(
+        {"host": "h", "username": "u", "password": "p", "has_attachment": True}
+    )
+    assert trigger.poll() == []
+
+
 def test_imap_poll_inline_attachment(monkeypatch):
     from pyzap.plugins.imap_poll import ImapPollTrigger
 
