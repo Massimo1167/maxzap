@@ -140,7 +140,9 @@
         actions.forEach((action, idx) => {
             const params = action.params || {};
             const entries = Object.entries(params);
-            const paramsHtml = entries.length ? '<ul class="mb-0">' + entries.map(([k,v]) => `<li>${k}: ${v}</li>`).join('') + '</ul>' : '';
+            const paramsHtml = entries.length
+                ? '<ul class="mb-0">' + entries.map(([k,v]) => `<li>${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}</li>`).join('') + '</ul>'
+                : '';
             const card = document.createElement('div');
             card.className = 'card mb-2';
             let buttons = `<button type="button" class="btn btn-sm btn-danger" onclick="removeAction(${idx})">Cancella</button>`;

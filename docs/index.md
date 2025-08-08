@@ -105,7 +105,18 @@ metadata into spreadsheet appenders:
 
 The `excel_append` action also accepts a `records` key containing a list of
 objects with the same fields configured in `fields`, allowing multiple rows to
-be appended in one execution.
+be appended in one execution. Date fields can be formatted with the
+`date_formats` option which maps field names to `strftime` patterns:
+
+```json
+{
+  "type": "excel_append",
+  "params": {
+    "file": "log.xlsx",
+    "date_formats": {"created_at": "%d/%m/%Y"}
+  }
+}
+```
 
 `pdf_split` will use the `attachment_paths` field from `gmail_archive` when
 `pdf_path` is not provided.

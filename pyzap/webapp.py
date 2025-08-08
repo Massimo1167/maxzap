@@ -435,6 +435,10 @@ def edit_action_route(wf, idx):
             for param in _get_plugin_params(cls, is_trigger=False):
                 value = request.form.get(param["name"])
                 if value:
+                    try:
+                        value = json.loads(value)
+                    except json.JSONDecodeError:
+                        pass
                     action["params"][param["name"]] = value
         workflows[wf]["actions"][idx] = action
         if isinstance(cfg, dict):

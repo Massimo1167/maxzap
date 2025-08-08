@@ -2,6 +2,7 @@ REM cd "C:\__Projects\__dev_Massimo\maxzap"
 
 @echo off
 REM -- 1. Spostati nella cartella del batch (dove risiede lo script)
+echo python -m pyzap.cli config.azienda.agricola-locale.json run --iterations 1 --repeat-interval 180
 cd /d "%~dp0"
 
 REM -- 2. Attiva il virtualenv (assumendo .venv nella cartella del progetto)
@@ -23,7 +24,7 @@ REM pytest tests/test_trigger.py::test_gmail_poll_success
 REM python -m pyzap.cli config.json run --log-level DEBUG --step
 
 REM python -m pyzap.cli azienda.agricola-splitpdf.json run 
-python -m pyzap.cli config.azienda.agricola-splitpdf.json run --iterations 1 --repeat-interval 180 
+python -m pyzap.cli config.azienda.agricola-locale.json run --iterations 1 --repeat-interval 180
 
 REM -- 4. Mantieni aperta la finestra per leggere eventuali messaggi
 echo.

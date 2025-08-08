@@ -193,3 +193,40 @@ def test_help_plugins_route():
     assert b"host" in resp.data
     assert b"folder_id" in resp.data
 
+
+def test_edit_action_parses_json_params(tmp_path):
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text(
+        json.dumps(
+            {
+                "workflows": [
+                    {
+                        "id": "wf1",
+                        "trigger": {"type": "manual"},
+                        "actions": [
+                            {"type": "excel_append", "params": {"file": "log.xlsx"}}
+                        ],
+                    }
+                ]
+            }
+        )
+    )
+
+    client = app.test_client()
+    _set_config_path(client, str(cfg_path))
+    token = _get_csrf_token(client, "/workflow/0/action/0")
+    resp = client.post(
+        "/workflow/0/action/0",
+        data={
+            "action_type": "excel_append",
+            "file": "log.xlsx",
+            "date_formats": json.dumps({"date": "%d/%m/%Y"}),
+            "csrf_token": token,
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    data = json.loads(cfg_path.read_text())
+    params = data["workflows"][0]["actions"][0]["params"]
+    assert params["date_formats"] == {"date": "%d/%m/%Y"}
+
