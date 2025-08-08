@@ -9,7 +9,7 @@
         "port": 993,
         "username": "${IMAP_EMAIL_PURCHASE}",
         "password": "${IMAP_PASSWORD_PURCHASE}",
-        "search": "SINCE 1-May-2025",
+        "search": "UNSEEN SINCE 1-Jun-2025",
         "has_attachment": true,
         "mark_seen": false
       },
