@@ -979,6 +979,30 @@ def test_excel_append_datetime_format(monkeypatch, tmp_path):
     assert row == ['26/07/2025 04:23:18']
 
 
+def test_excel_append_date_formats(monkeypatch, tmp_path):
+    _setup_openpyxl(monkeypatch)
+    import importlib
+    openpyxl = importlib.import_module('openpyxl')
+    ExcelAppendAction = importlib.import_module('pyzap.plugins.excel_append').ExcelAppendAction
+
+    file_path = tmp_path / 'book.xlsx'
+    wb = openpyxl.Workbook()
+    wb.save(file_path)
+
+    action = ExcelAppendAction(
+        {
+            'file': str(file_path),
+            'fields': ['date'],
+            'date_formats': {'date': '%d/%m/%Y'},
+        }
+    )
+    action.execute({'date': '2025-07-23'})
+
+    wb2 = openpyxl.load_workbook(file_path)
+    row = [cell.value for cell in wb2.active[1]]
+    assert row == ['23/07/2025']
+
+
 def test_excel_append_message_truncate(monkeypatch, tmp_path):
     _setup_openpyxl(monkeypatch)
     import importlib

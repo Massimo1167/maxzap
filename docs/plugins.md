@@ -58,6 +58,8 @@ This page lists all available triggers and actions provided by PyZap.
   - `sheet` (optional): Worksheet name to write to.
   - `fields` (optional): Ordered list of fields to append.
   - `max_message_length` (optional): Truncate message fields to this length.
+  - `date_formats` (optional): Mapping of field names to `strftime` patterns.
+    Example: `{ "created_at": "%d/%m/%Y" }`.
 - `excel_write_row` – Create or update rows in an Excel file.
   - `file`: Path to the workbook.
   - `sheet` (optional): Worksheet name to write to.

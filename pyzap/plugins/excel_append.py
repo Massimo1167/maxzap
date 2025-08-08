@@ -6,6 +6,8 @@ import json
 import email.utils
 from typing import Any, Dict, List
 
+from ..formatter import parse_date
+
 
 
 from ..core import BaseAction
@@ -33,6 +35,7 @@ class ExcelAppendAction(BaseAction):
                 max_message_length = int(max_message_length)
             except Exception:
                 max_message_length = None
+        date_formats: Dict[str, str] = self.params.get("date_formats", {})
         message_fields = {"summary", "body", "message"}
         if not file_path:
             raise ValueError("file parameter required")
@@ -69,6 +72,11 @@ class ExcelAppendAction(BaseAction):
                         try:
                             dt = email.utils.parsedate_to_datetime(value)
                             value = dt.strftime("%d/%m/%Y %H:%M:%S")
+                        except Exception:
+                            pass
+                    if name in date_formats and isinstance(value, str):
+                        try:
+                            value = parse_date(value).strftime(date_formats[name])
                         except Exception:
                             pass
                     if name == "attachments" and isinstance(value, (list, tuple)):
