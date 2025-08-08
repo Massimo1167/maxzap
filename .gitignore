@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .env
 pyzap.log*
+imap_poll_debug.log*
 token*.json
 credentials*.json
 credentials.json
