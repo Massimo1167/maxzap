@@ -2,6 +2,57 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List
 import re
+import os
+import difflib
+
+
+def _read_tipologie_known() -> List[str]:
+    """Legge tutti i codici TD dal file TDxx fattura.help"""
+    try:
+        # Cerca il file nella directory parent
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(current_dir)
+        file_path = os.path.join(parent_dir, "TDxx fattura.help")
+        
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                lines = [line.strip() for line in f if line.strip()]
+                return lines
+    except Exception:
+        pass
+    
+    # Fallback con TUTTI i termini TD dal file "TDxx fattura.help"
+    return [
+        "TD01 Fattura",
+        "TD02 Acconto/anticipo su fattura",
+        "TD03 Acconto/anticipo su parcella",
+        "TD04 Nota di credito",
+        "TD05 Nota di debito",
+        "TD06 Parcella",
+        "TD07 Fattura semplificata",
+        "TD08 Nota di credito semplificata",
+        "TD09 Nota di debito semplificata",
+        "TD10 Fattura differita (ex art. 21 comma 4 DPR 633/72)",
+        "TD11 Fattura per acquisto intracomunitario",
+        "TD12 Documento di trasporto (DDT)",
+        "TD13 Ricevuta fiscale",
+        "TD14 Fattura riepilogativa (per regolarizzazione o rettifica)",
+        "TD15 Integrazione fattura reverse charge interno",
+        "TD16 Integrazione fattura reverse charge esterno/UE",
+        "TD17 Integrazione/autofattura per acquisto servizi dall'estero",
+        "TD18 Integrazione/autofattura per acquisto di beni intracomunitari",
+        "TD19 Integrazione/autofattura per acquisto di beni ex art. 17 c.2 DPR 633/72",
+        "TD20 Autofattura per regolarizzazione e integrazione delle fatture (ex art. 6 c. 8 d.lgs. 471/97 o art. 46 c.5 D.L. 331/93)",
+        "TD21 Autofattura per splafonamento",
+        "TD22 Estrazione beni da Deposito IVA",
+        "TD23 Estrazione beni da Deposito IVA con versamento dell'IVA",
+        "TD24 fattura differita di cui all'art.21, comma 4, terzo periodo lett.a) DPR 633/72",
+        "TD25 Fattura differita di cui all'art.21, comma 4, terzo periodo lett.b) DPR 633/72",
+        "TD26 Cessione di beni ammortizzabili e per passaggi interni (ex art. 36 DPR 633/72)",
+        "TD27 Fattura per autoconsumo o per cessioni gratuite senza rivalsa",
+        "TD28 Acquisti da San Marino con IVA (fattura cartacea)",
+        "TD29 Comunicazione per omessa o irregolare fatturazione (introdotto dal 1° aprile 2025)",
+    ]
 
 
 def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
@@ -184,12 +235,38 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
             "nazione": _extract_group(r"Nazione\s*[:\-]?\s*(\S+)", cb),
         }
 
-    # ---------------- Documento ----------------
+    # ---------------- Documento (MIGLIORATO: include righe multi-line TD) ----------------
     header_m = re.search(r"Tipologia documento(.*?)(?:Cod\.|Prezzo totale|RIEPILOGHI|Totale documento)",
                          clean, re.IGNORECASE | re.DOTALL)
     if header_m:
-        hz = _norm_ws(header_m.group(1))
-        tokens = re.findall(r"\S+", hz)
+        hz = header_m.group(1)
+        
+        # MODIFICA CHIAVE: Non rimuove più le righe TD - le include nel testo per il parsing
+        # Rimuove solo pattern header specifici ma conserva i dati TD
+        lines = hz.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            line_clean = line.strip()
+            if not line_clean:
+                continue
+                
+            # Rimuove solo righe che sono puramente header (senza dati)
+            if re.match(r"^(?:Art\.?\s*73\s*|Numero\s+documento\s*|Data\s+documento\s*|Codice\s+destinatario\s*)$", line_clean, re.IGNORECASE):
+                continue
+                
+            # INCLUDE righe che contengono TD o dati documento
+            if (re.search(r"\bTD\d{2}\b", line_clean, re.IGNORECASE) or  # Righe con codici TD
+                re.search(r"\d{2,4}[-/]\d{1,2}[-/]\d{2,4}", line_clean) or  # Date
+                re.search(r"\b[A-Z0-9]{6,7}\b", line_clean) or  # Codici destinatario 
+                re.search(r"\bDPR\s+\d+/\d+\b", line_clean, re.IGNORECASE) or  # Pattern DPR
+                re.search(r"^\d+$", line_clean) or  # Righe con solo numeri (numero documento)
+                (len(line_clean.split()) >= 2 and re.search(r"\d", line_clean))):  # Righe con dati numerici
+                cleaned_lines.append(line_clean)
+        
+        # Combina tutte le righe di dati
+        hz_clean = " ".join(cleaned_lines)
+        tokens = re.findall(r"\S+", hz_clean)
 
         data_doc = None
         date_idx = None
@@ -204,38 +281,123 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                 return True
             return tok in {"633/72", "600/73", "600/1973"}
 
+        # ESTRAZIONE NUMERO CON STRATEGIA MIGLIORATA (date-anchored approach)
         numero: str | None = None
         if date_idx is not None:
-            # cerca un numero valido prima della data (ignorando 'DPR 633/72' e simili)
-            i = date_idx - 1
-            while i >= 0 and date_idx - i <= 6:
-                tok = tokens[i]
-                if _is_law_token(tok):
-                    i -= 1
-                    continue
-                if re.fullmatch(r"\d{8,}", tok):  # numero lungo
-                    pref = tokens[i-1] if i-1 >= 0 else ""
-                    numero = f"{pref} {tok}" if re.fullmatch(r"[A-Za-z0-9]{1,5}-", pref) else tok
-                    break
-                if re.fullmatch(r"[A-Za-z0-9]{1,5}-\d{3,}", tok):  # prefisso+numero
-                    numero = tok
-                    break
-                if "/" in tok and not _is_law_token(tok) and re.search(r"\d", tok):  # es. 559/M/25
-                    numero = tok
-                    break
-                i -= 1
+            # STRATEGIA MIGLIORATA: Il numero documento è immediatamente prima della data
+            # Cerca nell'intero testo il pattern: [qualsiasi_cosa] [NUMERO] [DATA]
+            
+            # Metodo 1: Trova il token immediatamente prima della data
+            if date_idx > 0:
+                potential_numero = tokens[date_idx - 1]
+                # Verifica che non sia parte della tipologia (evita DPR, 633/72, ecc.)
+                if (not re.search(r"^(DPR|lett\.|a\)|b\)|c\))$", potential_numero, re.IGNORECASE) and
+                   not re.search(r"^\d{3}/\d{2}$", potential_numero) and
+                   potential_numero not in ["DPR", "633/72"] and
+                   not _is_law_token(potential_numero)):  # Non DPR 633/72
+                    numero = potential_numero
+            
+            # Metodo 2 (fallback): Cerca pattern numerici prima della data nel testo
             if not numero:
-                for j in range(date_idx - 1, max(-1, date_idx - 7), -1):
-                    tok = tokens[j]
+                text_before_date = " ".join(tokens[:date_idx])
+                # Trova ultimo numero o codice alfanumerico prima della data
+                matches = re.findall(r'\b([A-Z]{1,4}[-\s]*\d+(?:/\d+)?|\d+(?:/\d+)?)\b', text_before_date)
+                if matches:
+                    # Prende l'ultimo match che non è DPR 633/72
+                    for match in reversed(matches):
+                        if not re.match(r'^\d{3}/\d{2}$', match):  # Non DPR 633/72
+                            numero = match
+                            break
+            
+            # Metodo 3 (fallback): logica originale come ultima risorsa
+            if not numero:
+                i = date_idx - 1
+                while i >= 0 and date_idx - i <= 6:
+                    tok = tokens[i]
                     if _is_law_token(tok):
+                        i -= 1
                         continue
-                    if re.fullmatch(r"\d{6,}", tok):
+                    if re.fullmatch(r"\d{8,}", tok):  # numero lungo
+                        pref = tokens[i-1] if i-1 >= 0 else ""
+                        numero = f"{pref} {tok}" if re.fullmatch(r"[A-Za-z0-9]{1,5}-", pref) else tok
+                        break
+                    if re.fullmatch(r"[A-Za-z0-9]{1,5}-\d{3,}", tok):  # prefisso+numero
                         numero = tok
                         break
+                    if "/" in tok and not _is_law_token(tok) and re.search(r"\d", tok):  # es. 559/M/25
+                        numero = tok
+                        break
+                    i -= 1
+                if not numero:
+                    for j in range(date_idx - 1, max(-1, date_idx - 7), -1):
+                        tok = tokens[j]
+                        if _is_law_token(tok):
+                            continue
+                        if re.fullmatch(r"\d{6,}", tok):
+                            numero = tok
+                            break
 
+        # ESTRAZIONE TIPOLOGIA CON APPROCCIO TD-BASED (portato da OCR version)
         tipo = None
-        if data_doc:
-            tipo = hz.split(numero)[0].strip() if (numero and numero in hz) else hz.split(data_doc)[0].strip()
+        if tokens and data_doc:
+            # Trova il primo codice TD nei token prima della data usando fuzzy matching
+            tipologie_note = _read_tipologie_known()
+            tipo_found = None
+            
+            # Cerca il codice TD più lungo che matcha
+            date_idx_search = date_idx if date_idx is not None else len(tokens)
+            remaining_tokens = tokens[:date_idx_search]  # Tutti i token prima della data
+            remaining_text = " ".join(remaining_tokens)
+            
+            for td_full in tipologie_note:
+                td_code = td_full[:4]  # Es: "TD24"
+                
+                # METODO 1: Cerca il codice TD esplicito nei token
+                td_explicit_found = False
+                for i in range(date_idx_search):
+                    if tokens[i].upper().startswith(td_code):
+                        # Match fuzzy con la tipologia completa
+                        similarity = difflib.SequenceMatcher(None, 
+                                                           remaining_text.lower(), 
+                                                           td_full.lower()).ratio()
+                        
+                        if similarity > 0.5:  # Soglia di similarità
+                            if not tipo_found or similarity > tipo_found[1]:
+                                tipo_found = (td_full, similarity, i)
+                                td_explicit_found = True
+                
+                # METODO 2: Se non trova TD esplicito, cerca parti significative del testo
+                if not td_explicit_found:
+                    # Estrae parti significative dalla definizione TD (dopo le prime 3 parole)
+                    td_parts = td_full.split()[3:]  # Salta "TD24 fattura differita"
+                    if td_parts:
+                        td_significant = " ".join(td_parts)
+                        
+                        # Match fuzzy con la parte significativa  
+                        similarity = difflib.SequenceMatcher(None, 
+                                                           remaining_text.lower(), 
+                                                           td_significant.lower()).ratio()
+                        
+                        if similarity > 0.7:  # Soglia più alta per match parziali
+                            if not tipo_found or similarity > tipo_found[1]:
+                                tipo_found = (td_full, similarity, 0)
+            
+            if tipo_found:
+                tipo = tipo_found[0]  # Usa la tipologia completa dai TD noti
+            else:
+                # Fallback: usa la versione precedente
+                if date_idx is not None:
+                    end_idx = date_idx
+                    if numero:
+                        numero_tokens = numero.split()
+                        for i in range(len(tokens) - len(numero_tokens) + 1):
+                            if tokens[i:i+len(numero_tokens)] == numero_tokens:
+                                end_idx = i
+                                break
+                    tipo_tokens = tokens[:end_idx]
+                    tipo = " ".join(tipo_tokens).strip()
+                else:
+                    tipo = " ".join(tokens).strip()
 
         codice_dest = None
         if data_doc and date_idx is not None and date_idx + 1 < len(tokens):
