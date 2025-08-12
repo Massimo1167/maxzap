@@ -6,7 +6,7 @@ from collections import defaultdict
 from typing import Any, Dict, List
 
 from ..core import BaseAction
-from ..pdf_utils import extract_table_row, parse_invoice_text
+from ..pdf_invoice import extract_table_row, parse_invoice_text
 from ..formatter import parse_date
 from ..utils import safe_filename
 

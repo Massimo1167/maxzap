@@ -8,7 +8,7 @@ import json
 import sys
 from PyPDF2 import PdfReader
 
-from pyzap.pdf_utils import parse_invoice_text
+from pyzap.pdf_invoice import parse_invoice_text
 
 
 def parse_pdf(path: str) -> dict:

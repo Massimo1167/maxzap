@@ -1193,7 +1193,7 @@ def test_pdf_split_sanitized_filename(monkeypatch, tmp_path):
 
 
 def test_extract_table_row():
-    from pyzap.pdf_utils import extract_table_row
+    from pyzap.pdf_invoice import extract_table_row
 
     text = (
         'Tipologia documento Art. 73 Numero documento Data documento Codice destinatario\n'
@@ -1218,7 +1218,7 @@ def test_extract_table_row():
 
 
 def test_extract_table_row_split_lines():
-    from pyzap.pdf_utils import extract_table_row
+    from pyzap.pdf_invoice import extract_table_row
 
     text = (
         'Tipologia documento Art.\n'
@@ -1246,7 +1246,7 @@ def test_extract_table_row_split_lines():
 
 
 def test_parse_invoice_text():
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1284,7 +1284,7 @@ def test_parse_invoice_text():
 
 
 def test_parse_invoice_text_table_header():
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1309,7 +1309,7 @@ def test_parse_invoice_text_table_header():
 
 
 def test_parse_invoice_split_number():
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1334,7 +1334,7 @@ def test_parse_invoice_split_number():
 
 def test_parse_invoice_codice_destinatario_extra_header():
     """Codice destinatario followed by another header on the same line."""
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1358,7 +1358,7 @@ def test_parse_invoice_codice_destinatario_extra_header():
 
 def test_parse_invoice_long_header_block():
     """Header/value block spanning more than five lines."""
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1386,7 +1386,7 @@ def test_parse_invoice_long_header_block():
 
 def test_parse_invoice_split_number_extended():
     """Invoice number split by a newline with a multi-line header block."""
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1412,7 +1412,7 @@ def test_parse_invoice_split_number_extended():
 
 def test_parse_invoice_split_number_newline():
     """Invoice number split in the middle of digits."""
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1437,7 +1437,7 @@ def test_parse_invoice_split_number_newline():
 
 def test_parse_invoice_codice_destinatario_inline_header():
     """Header line has another header token after 'Codice destinatario'."""
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1460,7 +1460,7 @@ def test_parse_invoice_codice_destinatario_inline_header():
 
 def test_parse_invoice_header_block_many_lines():
     """Header/value block spans more than five lines before the row."""
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1489,7 +1489,7 @@ def test_parse_invoice_header_block_many_lines():
 
 def test_parse_invoice_number_split_newline_alt():
     """Invoice number split across a newline should be reconstructed."""
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1514,7 +1514,7 @@ def test_parse_invoice_number_split_newline_alt():
 
 def test_parse_invoice_long_tipologia():
     """Tipologia documento value spans many words."""
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1540,7 +1540,7 @@ def test_parse_invoice_long_tipologia():
 
 def test_parse_invoice_no_codice_destinatario():
     """Header without the Codice destinatario column."""
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1563,7 +1563,7 @@ def test_parse_invoice_no_codice_destinatario():
 
 def test_parse_invoice_split_number_nextline_date():
     """Invoice number split across lines with the date on a separate line."""
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
@@ -1589,7 +1589,7 @@ def test_parse_invoice_split_number_nextline_date():
 
 def test_parse_invoice_header_words_split():
     """Header words split across many lines."""
-    from pyzap.pdf_utils import parse_invoice_text
+    from pyzap.pdf_invoice import parse_invoice_text
 
     text = (
         'Cedente/prestatore (fornitore)\n'
