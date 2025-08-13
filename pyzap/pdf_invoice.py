@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Tuple
 import re
 import os
 import difflib
@@ -53,6 +53,99 @@ def _read_tipologie_known() -> List[str]:
         "TD28 Acquisti da San Marino con IVA (fattura cartacea)",
         "TD29 Comunicazione per omessa o irregolare fatturazione (introdotto dal 1° aprile 2025)",
     ]
+
+
+def _extract_text_pdf_native(pdf_path: str, debug: bool = False) -> str:
+    """Estrae testo da PDF nativo. Usa pdfminer.six come preferito, PyPDF2 come fallback."""
+    # pdfminer.six (preferito) - più robusto per la struttura del testo
+    try:
+        from pdfminer.high_level import extract_text as pdfminer_extract_text  # type: ignore
+        txt = pdfminer_extract_text(pdf_path) or ""
+        if txt and len(txt.strip()) >= 10:
+            if debug:
+                print(f"DEBUG Using pdfminer.six for extraction")
+            return txt
+    except Exception as e:
+        if debug:
+            print(f"DEBUG pdfminer failed: {e}")
+        pass
+    
+    # PyPDF2 fallback (meno affidabile per struttura testo)
+    try:
+        import PyPDF2  # type: ignore
+        if debug:
+            print(f"DEBUG Using PyPDF2 fallback")
+        text = ""
+        with open(pdf_path, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            for pg in getattr(reader, "pages", []):
+                try:
+                    text += pg.extract_text() or ""
+                except Exception:
+                    continue
+        return text
+    except Exception as e:
+        if debug:
+            print(f"DEBUG PyPDF2 failed: {e}")
+        return ""
+
+
+def _extract_text_pdf_ocr(pdf_path: str, lang: str = "ita+eng", debug: bool = False) -> str:
+    """OCR via pdf2image+pytesseract. Ritorna stringa vuota se non disponibili."""
+    try:
+        from pdf2image import convert_from_path  # type: ignore
+        import pytesseract  # type: ignore
+    except Exception:
+        return ""
+    try:
+        images = convert_from_path(pdf_path, dpi=300)
+    except Exception:
+        return ""
+    chunks: List[str] = []
+    for im in images:
+        try:
+            chunks.append(pytesseract.image_to_string(im, lang=lang))
+        except Exception:
+            continue
+    return "\n".join(chunks)
+
+
+class ExtractResult:
+    """Risultato dell'estrazione PDF con metadati."""
+    def __init__(self, text: str, parsed: Dict[str, Any], ocr_used: bool):
+        self.text = text
+        self.parsed = parsed
+        self.ocr_used = ocr_used
+
+
+def extract_invoice_from_pdf(pdf_path: str, debug: bool = False) -> ExtractResult:
+    """Estrae il testo (nativo) e se serve fa OCR. Applica parse_invoice_text."""
+    if debug:
+        print(f"DEBUG EXTRACT_INVOICE: Processing {pdf_path}")
+    txt = _extract_text_pdf_native(pdf_path, debug)
+    if debug:
+        print(f"DEBUG NATIVE TEXT: {len(txt) if txt else 0} chars extracted")
+    
+    parsed = parse_invoice_text(txt, debug) if txt else {}
+    ocr_used = False
+    doc = (parsed or {}).get("documento", {}) if isinstance(parsed, dict) else {}
+    needs_ocr = (not txt) or (not parsed) or (not doc) or (
+        # Se non abbiamo numero e data e codice, prova OCR
+        (not doc.get("numero") and not doc.get("data") and not doc.get("codice_destinatario"))
+    )
+    if debug:
+        print(f"DEBUG NEEDS_OCR: {needs_ocr} (txt={bool(txt)}, parsed={bool(parsed)}, doc={bool(doc)})")
+    if needs_ocr:
+        if debug:
+            print("DEBUG Starting OCR extraction...")
+        ocr_txt = _extract_text_pdf_ocr(pdf_path, debug=debug)
+        if debug:
+            print(f"DEBUG OCR TEXT: {len(ocr_txt) if ocr_txt else 0} chars extracted")
+        if ocr_txt:
+            ocr_used = True
+            parsed = parse_invoice_text(ocr_txt, debug)
+            txt = ocr_txt
+    return ExtractResult(txt, parsed or {}, ocr_used)
 
 
 def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
@@ -146,7 +239,7 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
     return result
 
 
-def parse_invoice_text(text: str) -> Dict[str, Any]:
+def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
     """Extract fields from Italian electronic invoice OCR/text `text`.
     Mantiene la stessa interfaccia della versione originale.
     Migliorie:
@@ -281,9 +374,56 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                 return True
             return tok in {"633/72", "600/73", "600/1973"}
 
-        # ESTRAZIONE NUMERO CON STRATEGIA MIGLIORATA (date-anchored approach)
+        # ESTRAZIONE NUMERO CON STRATEGIA MIGLIORATA (multi-riga + date-anchored approach)
         numero: str | None = None
-        if date_idx is not None:
+        
+        # NUOVO: Controlla prima se abbiamo numeri documento multi-riga (strategia prioritaria)
+        if debug:
+            print(f"DEBUG Looking for numero in collected lines: {cleaned_lines[:10]}")
+        
+        numero_candidates = []
+        for i, line in enumerate(cleaned_lines):
+            line_strip = line.strip()
+            # Escludi righe con tipologia TD già processate per tipologia
+            if re.match(r"^\s*TD\d{2}\b", line_strip, re.IGNORECASE) and not re.search(r"[A-Z]{1,4}[-/_\\]\d+", line_strip):
+                continue
+            # Escludi le date
+            if re.match(r"^\s*\d{2}-\d{2}-\d{4}$", line_strip):
+                continue
+            # Pattern per numeri documento: prefisso + numero o solo numero lungo
+            if (re.match(r"^[A-Z0-9]{1,4}[-/_\\]?$", line_strip) or  # Prefisso come "V2-", "ABC/", "FPR_", "XYZ\"
+                re.match(r"^\d{6,}$", line_strip) or  # Numero lungo
+                re.match(r"^[A-Z0-9]{1,4}[-/_\\]*\d{3,}$", line_strip)):  # Formato completo
+                numero_candidates.append(line_strip)
+                if debug:
+                    print(f"DEBUG Found numero candidate [{i}]: '{line_strip}'")
+        
+        if debug:
+            print(f"DEBUG numero_candidates: {numero_candidates}")
+        
+        # Ricostruisci il numero documento dai candidates
+        if len(numero_candidates) >= 2:
+            # Se abbiamo prefisso + numero separati (tipo "V2-" + "250039161")
+            prefix = numero_candidates[0]
+            number = numero_candidates[1]
+            if re.match(r"^[A-Z0-9]{1,4}[-/_\\]?$", prefix) and re.match(r"^\d{6,}$", number):
+                # Se il prefisso finisce con un separatore, non aggiungere spazio
+                if re.search(r"[-/_\\]$", prefix):
+                    numero = f"{prefix}{number}"
+                else:
+                    numero = f"{prefix} {number}"
+                if debug:
+                    print(f"DEBUG Combined numero from prefix+number: '{numero}'")
+        elif len(numero_candidates) == 1:
+            # Numero già formato o solo prefisso
+            numero = numero_candidates[0]
+            if debug:
+                print(f"DEBUG Single numero candidate: '{numero}'")
+        
+        # Se non trovato con metodo multi-riga, usa approccio date-anchored classico
+        if not numero and date_idx is not None:
+            if debug:
+                print("DEBUG Using fallback date-anchored approach for numero")
             # STRATEGIA MIGLIORATA: Il numero documento è immediatamente prima della data
             # Cerca nell'intero testo il pattern: [qualsiasi_cosa] [NUMERO] [DATA]
             
@@ -301,7 +441,7 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
             if not numero:
                 text_before_date = " ".join(tokens[:date_idx])
                 # Trova ultimo numero o codice alfanumerico prima della data
-                matches = re.findall(r'\b([A-Z]{1,4}[-\s]*\d+(?:/\d+)?|\d+(?:/\d+)?)\b', text_before_date)
+                matches = re.findall(r'\b([A-Z]{1,4}[-/_\\]*\d+(?:[/_\\]\d+)?|\d+(?:[/_\\]\d+)?)\b', text_before_date)
                 if matches:
                     # Prende l'ultimo match che non è DPR 633/72
                     for match in reversed(matches):

@@ -10,6 +10,9 @@ import os
 # - CLI: scrive CSV con separatore ; e flag --debug-headers / --compare-native
 # ==============================
 
+# DEBUG FLAG - Controlla tutti i messaggi di debug
+DEBUG_ENABLED = False
+
 # ------------------------------
 # Funzioni di supporto
 # ------------------------------
@@ -177,7 +180,7 @@ def _looks_like_cod_dest(tok: str) -> bool:
 
 def _cleanup_tok(tok: str) -> str:
     tok = tok.strip().strip(".,;:()[]{}")
-    tok = re.sub(r"[^A-Za-z0-9/\-]", "", tok)
+    tok = re.sub(r"[^A-Za-z0-9/\-_\\]", "", tok)
     return tok
 
 
@@ -370,7 +373,7 @@ def _detect_document_header(lines: List[str]) -> Dict[str, Any]:
     return result
 
 
-def _collect_document_row(lines: List[str], header_end: int) -> Tuple[str | None, List[str]]:
+def _collect_document_row(lines: List[str], header_end: int, debug: bool = False) -> Tuple[str | None, List[str]]:
     """Raccoglie righe dati documento, gestendo header+dati sulla stessa riga e layout colonnari."""
     stops = re.compile(r"^(Cod\.|Prezzo totale|RIEPILOGHI|Totale documento)", re.IGNORECASE)
     buf: List[str] = []
@@ -399,11 +402,14 @@ def _collect_document_row(lines: List[str], header_end: int) -> Tuple[str | None
                 
             # Raccoglie righe non vuote che potrebbero contenere dati (INCLUDE tipologie TD!)
             if ln:
+                if debug:
+                    print(f"DEBUG Evaluating line [{i}]: '{ln}'")
                 # INCLUDE righe che iniziano con TDxx (contengono tipologie documento!)
                 if re.match(r"^\s*TD\d{2}\b", ln, re.IGNORECASE):
                     collected_data_lines.append(ln)
                     buf.append(ln)
-                    print(f"📄 Collected TD line [{i}]: '{ln}'")
+                    if debug:
+                        print(f"DEBUG Collected TD line [{i}]: '{ln}'")
                     i += 1
                     continue
                 
@@ -415,15 +421,17 @@ def _collect_document_row(lines: List[str], header_end: int) -> Tuple[str | None
                     re.search(r"^\d{4,}$", ln)):  # Numeri lunghi
                     collected_data_lines.append(ln)
                     buf.append(ln)
-                    print(f"📄 Collected data line [{i}]: '{ln}'")
+                    if debug:
+                        print(f"DEBUG Collected data line [{i}]: '{ln}'")
                 # Per layout colonnari, aggiungi anche righe brevi senza lettere minuscole (evita descrizioni)
                 elif (len(ln) < 30 and 
                       not re.search(r"[a-z]", ln) and  # Evita descrizioni in minuscolo
                       not re.search(r"\bfattura\b|\bnota\b|\bparcella\b", ln, re.IGNORECASE) and  # Evita termini tipologia
-                      re.search(r"[0-9]", ln)):  # Deve contenere almeno un numero
+                      (re.search(r"[0-9]", ln) or re.search(r"[A-Z]{1,4}[-/_\\]", ln))):  # Deve contenere numeri O prefissi
                     collected_data_lines.append(ln)
                     buf.append(ln)
-                    print(f"📄 Collected short line [{i}]: '{ln}'")
+                    if debug:
+                        print(f"DEBUG Collected short line [{i}]: '{ln}'")
             i += 1
     
     text = _norm_ws(" ".join(buf)) if buf else None
@@ -434,9 +442,59 @@ def _collect_document_row(lines: List[str], header_end: int) -> Tuple[str | None
 # Parser principale (OCR)
 # ================================
 
-def parse_invoice_text(text: str) -> Dict[str, Any]:
+def _normalize_pypdf_text(text: str) -> str:
+    """Normalizza il testo estratto da PyPDF2 che concatena le righe senza spazi."""
+    lines = text.replace("\r", "").splitlines()
+    normalized_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            normalized_lines.append("")
+            continue
+            
+        # Separa righe concatenate tipiche
+        # Pattern: "Telefono: XXXCessionario/committente" -> separa dopo il numero di telefono
+        line = re.sub(r"(\d{10})([A-Z][a-z])", r"\1\n\2", line)
+        
+        # Pattern: "Tipologia documento Art. 73Numero" -> separa in parti logiche  
+        line = re.sub(r"(Tipologia documento)\s+(Art\.\s*73)\s*([A-Z][a-z])", r"\1\n\2\n\3", line)
+        
+        # Pattern: "documento Data" -> separa quando vediamo "documento" seguito da maiuscola
+        line = re.sub(r"(documento)\s+([A-Z][a-z])", r"\1\n\2", line)
+        
+        # Pattern: "destinatario " -> separa dopo destinatario
+        line = re.sub(r"(destinatario)\s+([A-Z])", r"\1\n\2", line)
+        
+        # Pattern: "a) DPR 633/72 V2-" -> separa il numero documento
+        line = re.sub(r"(DPR\s+\d+/\d+)\s+([A-Z0-9]+[-/_\\])", r"\1\n\2", line)
+        
+        # Pattern: "V2-250039161 12-08-2025" -> separa numero e data documento
+        line = re.sub(r"([A-Z0-9]+[-/_\\]\d+)\s+(\d{2}-\d{2}-\d{4})", r"\1\n\2", line)
+        
+        # Aggiungi le righe risultanti (potrebbero essere multiple dopo la separazione)
+        if "\n" in line:
+            normalized_lines.extend(line.split("\n"))
+        else:
+            normalized_lines.append(line)
+    
+    return "\n".join(normalized_lines)
+
+
+def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
+    # Usa il testo direttamente se pdfminer funziona bene, altrimenti normalizza per PyPDF2
     clean_text = "\n".join(_norm_ws(ln) for ln in text.replace("\r", "").splitlines())
     lines = [ln for ln in clean_text.split("\n")]
+
+    # DEBUG: mostra le prime 20 righe del testo estratto
+    if debug:
+        print(f"DEBUG TEXT EXTRACTION - Found {len(lines)} lines total")
+        print("DEBUG First 20 lines:")
+        for i, line in enumerate(lines[:20]):
+            print(f"DEBUG [{i:2d}]: {repr(line)}")
+        
+        if len(lines) > 20:
+            print("DEBUG ... (showing only first 20 lines)")
 
     data: Dict[str, Any] = {}
     
@@ -499,8 +557,9 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
     header_dbg = _detect_document_header(lines)
     documento: Dict[str, Any] = {"tipo": None, "numero": None, "data": None, "codice_destinatario": None, "art_73": None}
     header_dbg["documento_initial"] = str(documento.copy())
-    print(f"🟢 Header detection completed, strategy: {header_dbg.get('detection_strategy')}")
-    print(f"📋 Header end at line {header_dbg.get('end_index')}, showing context:")
+    if debug:
+        print(f"DEBUG Header detection completed, strategy: {header_dbg.get('detection_strategy')}")
+        print(f"DEBUG Header end at line {header_dbg.get('end_index')}, showing context:")
     
     # Mostra le righe intorno all'header per debug
     if header_dbg.get("end_index") is not None:
@@ -509,14 +568,16 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
         end_context = min(len(lines), end_idx + 5)
         for i in range(start_context, end_context):
             marker = " --> " if i == end_idx else "     "
-            print(f"📋 {marker}[{i:2d}]: {repr(lines[i])}")
+            if debug:
+                print(f"DEBUG {marker}[{i:2d}]: {repr(lines[i])}")
     
     doc_row_text: str | None = None
     doc_row_lines: List[str] = []
 
     if header_dbg.get("end_index") is not None:
-        doc_row_text, doc_row_lines = _collect_document_row(lines, int(header_dbg["end_index"]))
-        print(f"📄 _collect_document_row result: text='{doc_row_text}', lines={doc_row_lines}")
+        doc_row_text, doc_row_lines = _collect_document_row(lines, int(header_dbg["end_index"]), debug)
+        if debug:
+            print(f"DEBUG _collect_document_row result: text='{doc_row_text}', lines={doc_row_lines}")
 
     # --------- Parsing riga dati del documento (con correzione separazione header multi-riga) ---------
     if doc_row_text:
@@ -570,13 +631,49 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
         
         # Per layout colonnare (strategy = "art73"), usa approccio semplificato
         if header_dbg.get("detection_strategy") == "art73":
-            # Prima cerca pattern multi-token come "FPR 538/25"
-            doc_text = doc_row_clean
+            # Strategia basata sui token raccolti per layout colonnare
+            if debug:
+                print(f"DEBUG doc_row_lines: {doc_row_lines}")
+                print(f"DEBUG Looking for numero in collected tokens...")
             
-            # Cerca pattern prefisso + numero/anno 
-            multi_token_match = re.search(r"\b([A-Z]{2,4})\s+(\d+/\d+)\b", doc_text)
-            if multi_token_match:
-                numero = f"{multi_token_match.group(1)} {multi_token_match.group(2)}"
+            # Cerca pattern numero documento nei token raccolti (esclusa tipologia e data)
+            numero_candidates = []
+            for i, line in enumerate(doc_row_lines):
+                # Escludi la tipologia TD
+                if re.match(r"^\s*TD\d{2}\b", line, re.IGNORECASE):
+                    continue
+                # Escludi le date
+                if re.match(r"^\s*\d{2}-\d{2}-\d{4}$", line.strip()):
+                    continue
+                # Pattern per numeri documento: prefisso + numero o solo numero lungo
+                if (re.match(r"^[A-Z0-9]{1,4}[-/_\\]?$", line.strip()) or  # Prefisso come "V2-", "ABC/", "FPR_", "XYZ\"
+                    re.match(r"^\d{6,}$", line.strip()) or  # Numero lungo
+                    re.match(r"^[A-Z0-9]{1,4}[-/_\\]*\d{3,}$", line.strip())):  # Formato completo
+                    numero_candidates.append(line.strip())
+                    if debug:
+                        print(f"DEBUG Found numero candidate [{i}]: '{line.strip()}'")
+            
+            if debug:
+                print(f"DEBUG numero_candidates: {numero_candidates}")
+            
+            # Ricostruisci il numero documento dai candidates
+            if len(numero_candidates) >= 2:
+                # Se abbiamo prefisso + numero separati (tipo "V2-" + "250039161")
+                prefix = numero_candidates[0]
+                number = numero_candidates[1]
+                if re.match(r"^[A-Z0-9]{1,4}[-/_\\]?$", prefix) and re.match(r"^\d{6,}$", number):
+                    # Se il prefisso finisce con un separatore, non aggiungere spazio
+                    if re.search(r"[-/_\\]$", prefix):
+                        numero = f"{prefix}{number}"
+                    else:
+                        numero = f"{prefix} {number}"
+                    if debug:
+                        print(f"DEBUG Combined numero from prefix+number: '{numero}'")
+            elif len(numero_candidates) == 1:
+                # Numero già formato o solo prefisso
+                numero = numero_candidates[0]
+                if debug:
+                    print(f"DEBUG Single numero candidate: '{numero}'")
             else:
                 # Fallback: cerca token singoli
                 for tok in tokens:
@@ -590,9 +687,54 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                         numero = tok_clean
                         break
         else:
-            # Logica originale per layout inline (strategia tipologia)
-            print("⚡ Using tipologia strategy for numero extraction")
-            if documento["data"]:
+            # Logica originale per layout inline (strategia tipologia)  
+            if debug:
+                print("DEBUG Using tipologia strategy for numero extraction")
+                
+            # NUOVO: Controlla prima se abbiamo numeri documento multi-riga anche in strategia tipologia
+            if doc_row_lines:
+                if debug:
+                    print(f"DEBUG doc_row_lines for tipologia strategy: {doc_row_lines}")
+                numero_candidates = []
+                for i, line in enumerate(doc_row_lines):
+                    # Escludi la tipologia TD
+                    if re.match(r"^\s*TD\d{2}\b", line, re.IGNORECASE):
+                        continue
+                    # Escludi le date
+                    if re.match(r"^\s*\d{2}-\d{2}-\d{4}$", line.strip()):
+                        continue
+                    # Pattern per numeri documento: prefisso + numero o solo numero lungo
+                    if (re.match(r"^[A-Z0-9]{1,4}[-/_\\]?$", line.strip()) or  # Prefisso come "V2-", "ABC/", "FPR_", "XYZ\"
+                        re.match(r"^\d{6,}$", line.strip()) or  # Numero lungo
+                        re.match(r"^[A-Z0-9]{1,4}[-/_\\]*\d{3,}$", line.strip())):  # Formato completo
+                        numero_candidates.append(line.strip())
+                        if debug:
+                            print(f"DEBUG Found numero candidate [{i}]: '{line.strip()}'")
+                
+                if debug:
+                    print(f"DEBUG numero_candidates for tipologia: {numero_candidates}")
+                
+                # Ricostruisci il numero documento dai candidates
+                if len(numero_candidates) >= 2:
+                    # Se abbiamo prefisso + numero separati (tipo "V2-" + "250039161")
+                    prefix = numero_candidates[0]
+                    number = numero_candidates[1]
+                    if re.match(r"^[A-Z0-9]{1,4}[-/_\\]?$", prefix) and re.match(r"^\d{6,}$", number):
+                        # Se il prefisso finisce con un separatore, non aggiungere spazio
+                        if re.search(r"[-/_\\]$", prefix):
+                            numero = f"{prefix}{number}"
+                        else:
+                            numero = f"{prefix} {number}"
+                        if debug:
+                            print(f"DEBUG Combined numero from prefix+number (tipologia): '{numero}'")
+                elif len(numero_candidates) == 1:
+                    # Numero già formato o solo prefisso
+                    numero = numero_candidates[0]
+                    if debug:
+                        print(f"DEBUG Single numero candidate (tipologia): '{numero}'")
+            
+            # Se non abbiamo trovato numero dai candidates multi-riga, usa logica fallback
+            if not numero and documento["data"]:
                 try:
                     di = tokens.index(documento["data"])
                 except ValueError:
@@ -604,10 +746,10 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                         tok = _cleanup_tok(tokens[i])
                         if tok and not _is_law_token(tok):
                             if (re.fullmatch(r"\d{8,}", tok) or
-                                re.fullmatch(r"[A-Za-z0-9]{1,5}-\d{3,}", tok) or
-                                ("/" in tok and not _is_law_token(tok) and re.search(r"\d", tok))):
+                                re.fullmatch(r"[A-Za-z0-9]{1,5}[-/_\\]\d{3,}", tok) or
+                                (re.search(r"[-/_\\]", tok) and not _is_law_token(tok) and re.search(r"\d", tok))):
                                 pref = _cleanup_tok(tokens[i-1]) if i-1 >= 0 else ""
-                                numero = f"{pref} {tok}" if re.fullmatch(r"[A-Za-z0-9]{1,5}-", pref) else tok
+                                numero = f"{pref} {tok}" if re.fullmatch(r"[A-Za-z0-9]{1,5}[-/_\\]", pref) else tok
                                 break
                         i -= 1
                     # forward
@@ -726,12 +868,14 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                     tipo = tipo_raw
         else:
             # APPROCCIO ROBUSTO: usa data e codici TD come ancore (strategia tipologia)
-            print(f"🟠 Using robust TD+date approach, strategy: {header_dbg.get('detection_strategy')}")
+            if debug:
+                print(f"DEBUG Using robust TD+date approach, strategy: {header_dbg.get('detection_strategy')}")
             header_dbg["tipologia_flow_path"] = "robust_td_date_approach"
             
             if tokens and documento["data"]:
-                print(f"🟤 Tokens: {tokens}")
-                print(f"🔶 Data anchor: '{documento['data']}'")
+                if debug:
+                    print(f"DEBUG Tokens: {tokens}")
+                    print(f"DEBUG Data anchor: '{documento['data']}'")
                 
                 # Trova l'indice della data (ancora sicura)
                 date_idx = None
@@ -749,7 +893,8 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                                     break
                 
                 if date_idx is not None:
-                    print(f"🔷 Date found at index {date_idx}")
+                    if debug:
+                        print(f"DEBUG Date found at index {date_idx}")
                     
                     # Trova il primo codice TD nei token prima della data
                     tipologie_note = _read_tipologie_known()
@@ -759,7 +904,8 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                     # Cerca il codice TD più lungo che matcha
                     remaining_tokens = tokens[:date_idx]  # Tutti i token prima della data
                     remaining_text = " ".join(remaining_tokens)
-                    print(f"🔍 Searching TD match in: '{remaining_text}'")
+                    if debug:
+                        print(f"DEBUG Searching TD match in: '{remaining_text}'")
                     
                     for td_full in tipologie_note:
                         td_code = td_full[:4]  # Es: "TD24"
@@ -791,7 +937,8 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                                                                    remaining_text.lower(), 
                                                                    td_significant.lower()).ratio()
                                 
-                                print(f"🔎 Checking '{td_code}' significant part '{td_significant}' vs '{remaining_text}' → similarity: {similarity:.3f}")
+                                if debug:
+                                    print(f"DEBUG Checking '{td_code}' significant part '{td_significant}' vs '{remaining_text}' -> similarity: {similarity:.3f}")
                                 
                                 if similarity > 0.7:  # Soglia più alta per match parziali
                                     if not tipo_found or similarity > tipo_found[1]:
@@ -800,7 +947,8 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                     
                     if tipo_found:
                         tipo = tipo_found[0]  # Usa la tipologia completa dai TD noti
-                        print(f"🎯 Found TD match: '{tipo}' (similarity: {tipo_found[1]:.2f})")
+                        if debug:
+                            print(f"DEBUG Found TD match: '{tipo}' (similarity: {tipo_found[1]:.2f})")
                         
                         # STRATEGIA MIGLIORATA: Il numero documento è immediatamente prima della data
                         # Cerca nell'intero testo il pattern: [qualsiasi_cosa] [NUMERO] [DATA]
@@ -813,25 +961,28 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                             if (not re.search(r"^(DPR|lett\.|a\)|b\)|c\))$", potential_numero, re.IGNORECASE) and
                                 not re.search(r"^\d{3}/\d{2}$", potential_numero)):  # Non DPR 633/72
                                 numero = potential_numero
-                                print(f"🔢 Method 1 - Token before date: '{numero}'")
+                                if debug:
+                                    print(f"DEBUG Method 1 - Token before date: '{numero}'")
                         
                         # Metodo 2 (fallback): Cerca pattern numerici prima della data nel testo
                         if not numero:
                             text_before_date = " ".join(tokens[:date_idx])
                             # Trova ultimo numero o codice alfanumerico prima della data
-                            matches = re.findall(r'\b([A-Z]{1,4}[-\s]*\d+(?:/\d+)?|\d+(?:/\d+)?)\b', text_before_date)
+                            matches = re.findall(r'\b([A-Z]{1,4}[-/_\\]*\d+(?:[/_\\]\d+)?|\d+(?:[/_\\]\d+)?)\b', text_before_date)
                             if matches:
                                 # Prende l'ultimo match che non è DPR 633/72
                                 for match in reversed(matches):
                                     if not re.match(r'^\d{3}/\d{2}$', match):  # Non DPR 633/72
                                         numero = match
-                                        print(f"🔢 Method 2 - Pattern match: '{numero}'")
+                                        if debug:
+                                            print(f"DEBUG Method 2 - Pattern match: '{numero}'")
                                         break
                         
                         if numero:
                             documento["numero"] = numero
                         else:
-                            print("⚠️ Could not extract numero documento")
+                            if debug:
+                                print("DEBUG Could not extract numero documento")
                     else:
                         # Fallback: prende tutto prima della data come tipologia grezza
                         # ANCHE qui estrai il numero documento prima della data
@@ -841,7 +992,8 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                                 not re.search(r"^\d{3}/\d{2}$", potential_numero)):
                                 numero = potential_numero
                                 documento["numero"] = numero
-                                print(f"🔢 Fallback - extracted numero: '{numero}'")
+                                if debug:
+                                    print(f"DEBUG Fallback - extracted numero: '{numero}'")
                                 tipo_tokens = tokens[:date_idx-1]  # Esclude anche il numero
                             else:
                                 tipo_tokens = tokens[:date_idx]  # Include tutto
@@ -849,9 +1001,11 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
                             tipo_tokens = tokens[:date_idx]
                             
                         tipo = " ".join(tipo_tokens).strip()
-                        print(f"⚠️  No TD match found, using raw text: '{tipo}'")
+                        if debug:
+                            print(f"DEBUG No TD match found, using raw text: '{tipo}'")
                 else:
-                    print("🔸 No date found in tokens")
+                    if debug:
+                        print("DEBUG No date found in tokens")
         
         # DEBUG: salva il tipo prima della pulizia finale
         header_dbg["tipo_before_cleanup"] = repr(tipo)
@@ -863,16 +1017,19 @@ def parse_invoice_text(text: str) -> Dict[str, Any]:
         
         # DEBUG: salva il tipo finale
         header_dbg["tipo_after_cleanup"] = repr(tipo)
-        print(f"🔴 Final assignment: tipo={repr(tipo)}")
+        if debug:
+            print(f"DEBUG Final assignment: tipo={repr(tipo)}")
         documento["tipo"] = tipo or None
-        print(f"🔵 Final documento after tipo assignment: {documento}")
+        if debug:
+            print(f"DEBUG Final documento after tipo assignment: {documento}")
 
         # Art. 73: segnalazione presenza via header
         if any(re.search(r"Art\.?\s*73", ln, re.IGNORECASE) for ln in header_dbg.get("header_lines", [])):
             documento["art_73"] = "Art. 73"
 
         data["documento"] = documento
-        print(f"🟣 Added documento to data: {data.get('documento')}")
+        if debug:
+            print(f"DEBUG Added documento to data: {data.get('documento')}")
 
     # --------- Righe Dettaglio ---------
     data["righe_dettaglio"] = []
@@ -945,17 +1102,21 @@ class ExtractResult:
 
 def _extract_text_pdf_native(pdf_path: str) -> str:
     """Estrae testo da PDF nativo. Ritorna stringa vuota se non riesce."""
-    # pdfminer (preferito)
+    # pdfminer.six (preferito) - più robusto per la struttura del testo
     try:
         from pdfminer.high_level import extract_text as pdfminer_extract_text  # type: ignore
         txt = pdfminer_extract_text(pdf_path) or ""
         if txt and len(txt.strip()) >= 10:
+            print(f"DEBUG Using pdfminer.six for extraction")
             return txt
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG pdfminer failed: {e}")
         pass
-    # PyPDF2 fallback
+    
+    # PyPDF2 fallback (meno affidabile per struttura testo)
     try:
         import PyPDF2  # type: ignore
+        print(f"DEBUG Using PyPDF2 fallback")
         text = ""
         with open(pdf_path, "rb") as f:
             reader = PyPDF2.PdfReader(f)
@@ -965,7 +1126,8 @@ def _extract_text_pdf_native(pdf_path: str) -> str:
                 except Exception:
                     continue
         return text
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG PyPDF2 failed: {e}")
         return ""
 
 
@@ -989,21 +1151,40 @@ def _extract_text_pdf_ocr(pdf_path: str, lang: str = "ita+eng") -> str:
     return "\n".join(chunks)
 
 
-def extract_invoice(pdf_path: str) -> ExtractResult:
+def extract_invoice(pdf_path: str, debug: bool = False) -> ExtractResult:
     """Estrae il testo (nativo) e se serve fa OCR. Applica parse_invoice_text."""
+    if debug:
+        print(f"DEBUG EXTRACT_INVOICE: Processing {pdf_path}")
     txt = _extract_text_pdf_native(pdf_path)
-    parsed = parse_invoice_text(txt) if txt else {}
+    if debug:
+        print(f"DEBUG NATIVE TEXT: {len(txt) if txt else 0} chars extracted")
+        if txt:
+            print(f"DEBUG NATIVE PREVIEW: {repr(txt[:200])}...")
+        else:
+            print("DEBUG NATIVE TEXT: EMPTY!")
+    
+    parsed = parse_invoice_text(txt, debug) if txt else {}
     ocr_used = False
     doc = (parsed or {}).get("documento", {}) if isinstance(parsed, dict) else {}
     needs_ocr = (not txt) or (not parsed) or (not doc) or (
         # Se non abbiamo numero e data e codice, prova OCR
         (not doc.get("numero") and not doc.get("data") and not doc.get("codice_destinatario"))
     )
+    if debug:
+        print(f"DEBUG NEEDS_OCR: {needs_ocr} (txt={bool(txt)}, parsed={bool(parsed)}, doc={bool(doc)})")
     if needs_ocr:
+        if debug:
+            print("DEBUG Starting OCR extraction...")
         ocr_txt = _extract_text_pdf_ocr(pdf_path)
+        if debug:
+            print(f"DEBUG OCR TEXT: {len(ocr_txt) if ocr_txt else 0} chars extracted")
+            if ocr_txt:
+                print(f"DEBUG OCR PREVIEW: {repr(ocr_txt[:200])}...")
+            else:
+                print("DEBUG OCR TEXT: EMPTY!")
         if ocr_txt:
             ocr_used = True
-            parsed = parse_invoice_text(ocr_txt)
+            parsed = parse_invoice_text(ocr_txt, debug)
             txt = ocr_txt
     return ExtractResult(txt, parsed or {}, ocr_used)
 
@@ -1142,15 +1323,20 @@ if __name__ == "__main__":
                         help="Aggiunge anche la riga del parser legacy (solo PDF testuali)")
     parser.add_argument("--debug-headers", action="store_true",
                         help="Stampa a video i dettagli dell'header DOCUMENTO rilevato")
+    parser.add_argument("--debug", action="store_true",
+                        help="Attiva debug completo (estrazione testo, parsing, ecc.)")
 
     args = parser.parse_args()
+    
+    # Attiva il debug se richiesto  
+    debug_enabled = args.debug
 
     rows: List[Dict[str, str]] = []
     for pth in args.pdf:
         if not os.path.exists(pth):
             print("File non trovato:", pth)
             continue
-        res = extract_invoice(pth)
+        res = extract_invoice(pth, debug_enabled)
         if args.debug_headers:
             dbg = res.parsed.get("debug_header", {})
             print("\n=== DEBUG HEADER per:", pth)

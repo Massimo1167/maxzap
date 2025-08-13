@@ -6,4 +6,7 @@ google-auth-oauthlib
 python-dotenv
 openpyxl
 PyPDF2
+pdfminer.six>=20250506
 filelock
+pdf2image
+pytesseract
