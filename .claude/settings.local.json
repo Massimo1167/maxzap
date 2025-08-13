@@ -8,6 +8,7 @@
       "Bash(pip install:*)",
       "Bash(pip uninstall:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }
