@@ -5,6 +5,14 @@ import re
 import os
 import difflib
 
+# DEBUG FLAG - Controlla tutti i messaggi di debug
+DEBUG_ENABLED = False
+
+
+def _norm_ws(s: str) -> str:
+    """Normalizza gli spazi bianchi: rimuove \r, converte spazi multipli in singoli"""
+    return re.sub(r"\s+", " ", s.replace("\r", " ").strip())
+
 
 def _read_tipologie_known() -> List[str]:
     """Legge tutti i codici TD dal file TDxx fattura.help"""
@@ -83,6 +91,9 @@ def _extract_text_pdf_native(pdf_path: str, debug: bool = False) -> str:
                     text += pg.extract_text() or ""
                 except Exception:
                     continue
+        # Normalizza il testo PyPDF2 per separare le righe concatenate
+        if text:
+            text = _normalize_pypdf_text(text)
         return text
     except Exception as e:
         if debug:
@@ -116,6 +127,45 @@ class ExtractResult:
         self.text = text
         self.parsed = parsed
         self.ocr_used = ocr_used
+
+
+def _normalize_pypdf_text(text: str) -> str:
+    """Normalizza il testo estratto da PyPDF2 che concatena le righe senza spazi."""
+    lines = text.replace("\r", "").splitlines()
+    normalized_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            normalized_lines.append("")
+            continue
+            
+        # Separa righe concatenate tipiche
+        # Pattern: "Telefono: XXXCessionario/committente" -> separa dopo il numero di telefono
+        line = re.sub(r"(\d{10})([A-Z][a-z])", r"\1\n\2", line)
+        
+        # Pattern: "Tipologia documento Art. 73Numero" -> separa in parti logiche  
+        line = re.sub(r"(Tipologia documento)\s+(Art\.\s*73)\s*([A-Z][a-z])", r"\1\n\2\n\3", line)
+        
+        # Pattern: "documento Data" -> separa quando vediamo "documento" seguito da maiuscola
+        line = re.sub(r"(documento)\s+([A-Z][a-z])", r"\1\n\2", line)
+        
+        # Pattern: "destinatario " -> separa dopo destinatario
+        line = re.sub(r"(destinatario)\s+([A-Z])", r"\1\n\2", line)
+        
+        # Pattern: "a) DPR 633/72 V2-" -> separa il numero documento
+        line = re.sub(r"(DPR\s+\d+/\d+)\s+([A-Z0-9]+[-/_\\])", r"\1\n\2", line)
+        
+        # Pattern: "V2-250039161 12-08-2025" -> separa numero e data documento
+        line = re.sub(r"([A-Z0-9]+[-/_\\]\d+)\s+(\d{2}-\d{2}-\d{4})", r"\1\n\2", line)
+        
+        # Aggiungi le righe risultanti (potrebbero essere multiple dopo la separazione)
+        if "\n" in line:
+            normalized_lines.extend(line.split("\n"))
+        else:
+            normalized_lines.append(line)
+    
+    return "\n".join(normalized_lines)
 
 
 def extract_invoice_from_pdf(pdf_path: str, debug: bool = False) -> ExtractResult:
@@ -239,18 +289,281 @@ def extract_table_row(text: str, columns: Iterable[Any]) -> Dict[str, str]:
     return result
 
 
+# Variabili globali per supportare la logica avanzata
+LAW_TOKENS = {"633/72", "600/73", "600/1973"}
+HEADER_LABELS = ["Tipologia documento", "Art. 73", "Numero documento", "Data documento", "Codice destinatario"]
+HEADER_VARIANTS = {
+    "Tipologia documento": [
+        r"Tipologia\s+documento",  # riga singola
+        r"Tipologia.*?documento",  # multi-riga con wildcard
+    ],
+    "Art. 73": [r"Art\.?\s*73"],
+    "Numero documento": [
+        r"Numero\s+documento",     # riga singola
+        r"N\.?\s*documento", 
+        r"Numero\s+doc\.?",
+        r"Numero.*?documento",     # multi-riga: "Numero" + qualsiasi cosa + "documento"
+    ],
+    "Data documento": [
+        r"Data\s+documento",       # riga singola
+        r"Data\s+doc\.?",
+        r"Data.*?documento",       # multi-riga: "Data" + qualsiasi cosa + "documento"
+    ],
+    "Codice destinatario": [
+        r"Cod(?:ice)?\s+destinatario", 
+        r"Cod\.\s*destinatario",
+        r"Codice.*?destinatario",  # multi-riga: "Codice" + qualsiasi cosa + "destinatario"
+        r"Cod\..*?destinatario",   # multi-riga: "Cod." + qualsiasi cosa + "destinatario"
+    ],
+}
+
+# Pattern per identificare parti di header che potrebbero essere distribuite su più righe
+HEADER_PARTS = {
+    "Numero documento": ["Numero", "documento"],
+    "Data documento": ["Data", "documento"], 
+    "Codice destinatario": ["Codice", "destinatario", "Cod.", "Cod"],
+}
+
+
+def _is_law_token(tok: str) -> bool:
+    if "/" in tok and re.fullmatch(r"\d{3}/\d{2}", tok):
+        return True
+    return tok in LAW_TOKENS or (tok.upper().startswith("DPR") and "633/72" in tok)
+
+
+def _looks_like_cod_dest(tok: str) -> bool:
+    return bool(re.fullmatch(r"[A-Z0-9]{6,7}", tok))
+
+
+def _cleanup_tok(tok: str) -> str:
+    tok = tok.strip().strip(".,;:()[]{}") 
+    tok = re.sub(r"[^A-Za-z0-9/\-_\\]", "", tok)
+    return tok
+
+
+def _score_docnum(tok: str) -> int:
+    if _looks_like_cod_dest(tok) or _is_law_token(tok):
+        return -10
+    s = 0
+    digits = sum(ch.isdigit() for ch in tok)
+    s += min(digits, 12)
+    if "-" in tok:
+        s += 2
+    if "/" in tok and not _is_law_token(tok):
+        s += 1
+    if re.search(r"[A-Za-z]", tok):
+        s += 1
+    if len(tok) >= 9:
+        s += 2
+    return s
+
+
+def _label_found(blob: str, canonical: str) -> bool:
+    """Verifica se un'etichetta header è presente nel blob di testo."""
+    patterns = HEADER_VARIANTS.get(canonical, [re.escape(canonical)])
+    for pat in patterns:
+        if re.search(pat, blob, re.IGNORECASE | re.DOTALL):
+            return True
+    return False
+
+
+def _find_partial_headers(lines: List[str], start_idx: int, max_lines: int = 3) -> Dict[str, List[int]]:
+    """Trova parti di header distribuite su più righe."""
+    found_parts = {}
+    
+    for label, parts in HEADER_PARTS.items():
+        found_parts[label] = []
+        for i in range(start_idx, min(start_idx + max_lines, len(lines))):
+            line = lines[i]
+            for part in parts:
+                if re.search(r"\b" + re.escape(part) + r"\b", line, re.IGNORECASE):
+                    if i not in found_parts[label]:
+                        found_parts[label].append(i)
+    
+    return found_parts
+
+
+def _detect_document_header(lines: List[str]) -> Dict[str, Any]:
+    """Individua l'header della tabella DOCUMENTO gestendo headers multi-riga."""
+    # Cerca prima "Tipologia documento", poi "Art. 73" come punto di partenza alternativo
+    tipologia_idx = next((i for i, ln in enumerate(lines) if re.search(r"Tipologia\s+documento", ln, re.IGNORECASE)), None)
+    art73_idx = next((i for i, ln in enumerate(lines) if re.search(r"^Art\.?\s*73\s*$", ln.strip(), re.IGNORECASE)), None)
+    
+    # Usa Art. 73 come punto di partenza se Tipologia documento non porta ai dati
+    start_idx = tipologia_idx
+    if art73_idx is not None and (tipologia_idx is None or art73_idx > tipologia_idx):
+        start_idx = art73_idx
+        
+    result = {
+        "start_index": None,
+        "end_index": None,
+        "header_lines": [],
+        "header_blob": "",
+        "found_labels": {lbl: False for lbl in HEADER_LABELS},
+        "missing_labels": HEADER_LABELS.copy(),
+        "partial_headers": {},
+        "detection_strategy": "tipologia" if start_idx == tipologia_idx else "art73",
+    }
+    
+    if start_idx is None:
+        return result
+    
+    # Cerca parti di header distribuite su più righe partendo dal punto di inizio identificato
+    max_search_lines = 12 if result["detection_strategy"] == "art73" else 8
+    partial_headers = _find_partial_headers(lines, start_idx, max_lines=max_search_lines)
+    result["partial_headers"] = partial_headers
+    
+    header_blob = lines[start_idx]
+    end_idx = start_idx
+    
+    # Espande l'header - più righe se partiamo da Art. 73
+    max_iterations = 8 if result["detection_strategy"] == "art73" else 3
+    for iteration in range(max_iterations):
+        # Aggiorna detection per il blob corrente
+        for lbl in HEADER_LABELS:
+            if not result["found_labels"][lbl]:  # Solo se non già trovato
+                if _label_found(header_blob, lbl):
+                    result["found_labels"][lbl] = True
+                else:
+                    # Verifica usando parti parziali per headers multi-riga
+                    if lbl in partial_headers and len(partial_headers[lbl]) >= 2:
+                        # Se abbiamo trovato almeno 2 parti dell'header su righe diverse, consideralo trovato
+                        parts = HEADER_PARTS.get(lbl, [])
+                        if len(parts) >= 2:
+                            found_count = 0
+                            for part in parts:
+                                if any(re.search(r"\b" + re.escape(part) + r"\b", lines[idx], re.IGNORECASE) 
+                                      for idx in partial_headers[lbl]):
+                                    found_count += 1
+                            if found_count >= 2:  # Trovate almeno 2 parti
+                                result["found_labels"][lbl] = True
+        
+        # Se tutte le etichette sono state trovate, fermati
+        if all(result["found_labels"].values()):
+            break
+            
+        # Altrimenti prova ad aggiungere una riga
+        if end_idx + 1 < len(lines):
+            next_line = lines[end_idx + 1].strip()
+            
+            # NON aggiungere se la riga sembra essere dati invece che header
+            is_data_line = False
+            if next_line:
+                # Righe che sembrano essere dati documento
+                if (re.match(r"^\d+$", next_line) or  # Solo numeri
+                    re.match(r"^\d{2}-\d{2}-\d{4}$", next_line) or  # Date
+                    re.match(r"^[A-Z0-9]{6,7}$", next_line) or  # Codici destinatario
+                    re.match(r"^[A-Z]{2,4}\s+\d+/\d+$", next_line) or  # Pattern FPR 123/45
+                    re.match(r"^TD\d{2}\s+", next_line, re.IGNORECASE)):  # Tipologie TD (già elaborate)
+                    is_data_line = True
+            
+            if not is_data_line:
+                # Aggiungi solo se la riga sembra contenere parti di header
+                contains_header_parts = False
+                for parts in HEADER_PARTS.values():
+                    for part in parts:
+                        if re.search(r"\b" + re.escape(part) + r"\b", next_line, re.IGNORECASE):
+                            contains_header_parts = True
+                            break
+                    if contains_header_parts:
+                        break
+                
+                # Più conservativo per evitare di includere dati
+                min_lines = 4 if result["detection_strategy"] == "art73" else 2
+                if contains_header_parts or (iteration < min_lines and not is_data_line):
+                    header_blob = header_blob + " " + next_line
+                    end_idx += 1
+                else:
+                    break
+            else:
+                # È una riga di dati, ferma l'espansione dell'header
+                break
+        else:
+            break
+    
+    # Calcola risultato finale
+    result["start_index"] = start_idx
+    result["end_index"] = end_idx
+    result["header_lines"] = lines[start_idx:end_idx+1]
+    result["header_blob"] = _norm_ws(header_blob) if 'header_blob' in locals() else ""
+    result["missing_labels"] = [k for k, v in result["found_labels"].items() if not v]
+    
+    return result
+
+
+def _collect_document_row(lines: List[str], header_end: int, debug: bool = False) -> Tuple[str | None, List[str]]:
+    """Raccoglie righe dati documento, gestendo header+dati sulla stessa riga e layout colonnari."""
+    stops = re.compile(r"^(Cod\.|Prezzo totale|RIEPILOGHI|Totale documento)", re.IGNORECASE)
+    buf: List[str] = []
+    
+    # Verifica se l'ultima riga dell'header contiene anche i dati
+    if header_end < len(lines):
+        header_line = lines[header_end]
+        # Cerca pattern tipici di dati documento nell'ultima riga dell'header
+        if re.search(r"\bTD\d{2}\b", header_line, re.IGNORECASE) or \
+           re.search(r"\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4}|\d{2}/\d{2}/\d{4}", header_line):
+            # L'header contiene anche i dati, usa questa riga
+            buf.append(header_line)
+    
+    # Aggiungi righe successive se non abbiamo già trovato dati nell'header
+    if not buf:
+        i = header_end + 1
+        collected_data_lines = []
+        
+        # Cerca dati saltando righe vuote e raccogliendo righe con contenuto
+        while i < len(lines) and len(collected_data_lines) < 10:  # Espande la ricerca
+            ln = lines[i].strip()
+            
+            # Stop se troviamo sezioni successive
+            if ln and stops.search(ln):
+                break
+                
+            # Raccoglie righe non vuote che potrebbero contenere dati (INCLUDE tipologie TD!)
+            if ln:
+                if debug:
+                    print(f"DEBUG Evaluating line [{i}]: '{ln}'")
+                # INCLUDE righe che iniziano con TDxx (contengono tipologie documento!)
+                if re.match(r"^\s*TD\d{2}\b", ln, re.IGNORECASE):
+                    collected_data_lines.append(ln)
+                    buf.append(ln)
+                    if debug:
+                        print(f"DEBUG Collected TD line [{i}]: '{ln}'")
+                    i += 1
+                    continue
+                
+                # Verifica se sembra contenere dati documento
+                if (re.search(r"^\d+$", ln) or  # Solo numeri (numero documento)
+                    re.search(r"\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4}", ln) or  # Date
+                    re.search(r"^[A-Z0-9]{6,7}$", ln) or  # Codice destinatario
+                    re.search(r"^[A-Z]{2,4}\s+\d+/\d+$", ln) or  # Numeri con prefisso tipo "FPR 538/25"
+                    re.search(r"^\d{4,}$", ln)):  # Numeri lunghi
+                    collected_data_lines.append(ln)
+                    buf.append(ln)
+                    if debug:
+                        print(f"DEBUG Collected data line [{i}]: '{ln}'")
+                # Per layout colonnari, aggiungi anche righe brevi senza lettere minuscole (evita descrizioni)
+                elif (len(ln) < 30 and 
+                      not re.search(r"[a-z]", ln) and  # Evita descrizioni in minuscolo
+                      not re.search(r"\bfattura\b|\bnota\b|\bparcella\b", ln, re.IGNORECASE) and  # Evita termini tipologia
+                      (re.search(r"[0-9]", ln) or re.search(r"[A-Z]{1,4}[-/_\\]", ln))):  # Deve contenere numeri O prefissi
+                    collected_data_lines.append(ln)
+                    buf.append(ln)
+                    if debug:
+                        print(f"DEBUG Collected short line [{i}]: '{ln}'")
+            i += 1
+    
+    text = _norm_ws(" ".join(buf)) if buf else None
+    return (text, buf)
+
+
 def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
     """Extract fields from Italian electronic invoice OCR/text `text`.
     Mantiene la stessa interfaccia della versione originale.
     Migliorie:
       - Denominazione (fornitore/cliente) multiline -> robusto a line break OCR.
       - Numero documento -> ignora token di legge (es. 'DPR 633/72').
+      - Gestione avanzata header multi-riga.
     """
-
-    def _norm_ws(s: str) -> str:
-        return re.sub(r"\s+", " ", s.replace("\r", " ").strip())
-
-    DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4}|\d{2}/\d{2}/\d{4})\b")
 
     def _to_float(value: str | None) -> float | None:
         if not value:
@@ -283,12 +596,26 @@ def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
         val = _norm_ws(tail).strip()
         return val or None
 
-    clean = "\n".join(_norm_ws(ln) for ln in text.replace("\r", "").splitlines())
-    data: Dict[str, Any] = {}
+    # Usa il testo direttamente se pdfminer funziona bene, altrimenti normalizza per PyPDF2
+    clean_text = "\n".join(_norm_ws(ln) for ln in text.replace("\r", "").splitlines())
+    lines = [ln for ln in clean_text.split("\n")]
 
-    # ---------------- Fornitore ----------------
+    # DEBUG: mostra le prime 20 righe del testo estratto
+    if debug:
+        print(f"DEBUG TEXT EXTRACTION - Found {len(lines)} lines total")
+        print("DEBUG First 20 lines:")
+        for i, line in enumerate(lines[:20]):
+            print(f"DEBUG [{i:2d}]: {repr(line)}")
+        
+        if len(lines) > 20:
+            print("DEBUG ... (showing only first 20 lines)")
+
+    data: Dict[str, Any] = {}
+    DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4}|\d{2}/\d{2}/\d{4})\b")
+
+    # --------- Cedente/Prestatore ---------
     seller_m = re.search(r"Cedente/prestatore\s*\(fornitore\)(.*?)(Cessionario/committente|Tipologia documento)",
-                         clean, re.IGNORECASE | re.DOTALL)
+                         clean_text, re.IGNORECASE | re.DOTALL)
     if seller_m:
         sb = seller_m.group(1)
         denom = _extract_group(r"Denominazione\s*[:\-]?\s*(.*?)(?:Comune|Regime fiscale|Indirizzo|Cap|Provincia|Nazione|Telefono|$)", sb)
@@ -308,9 +635,9 @@ def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
             "telefono": _extract_group(r"Telefono\s*[:\-]?\s*(\S+)", sb),
         }
 
-    # ---------------- Cliente ----------------
+    # --------- Cessionario/Committente ---------
     client_m = re.search(r"Cessionario/committente\s*\(cliente\)(.*?)(Tipologia documento|RIEPILOGHI|Cod\.)",
-                         clean, re.IGNORECASE | re.DOTALL)
+                         clean_text, re.IGNORECASE | re.DOTALL)
     if client_m:
         cb = client_m.group(1)
         c_denom = _extract_group(r"Denominazione\s*[:\-]?\s*(.*?)(?:Indirizzo|Comune|Provincia|Cap|Nazione|$)", cb)
@@ -328,37 +655,37 @@ def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
             "nazione": _extract_group(r"Nazione\s*[:\-]?\s*(\S+)", cb),
         }
 
-    # ---------------- Documento (MIGLIORATO: include righe multi-line TD) ----------------
-    header_m = re.search(r"Tipologia documento(.*?)(?:Cod\.|Prezzo totale|RIEPILOGHI|Totale documento)",
-                         clean, re.IGNORECASE | re.DOTALL)
-    if header_m:
-        hz = header_m.group(1)
-        
-        # MODIFICA CHIAVE: Non rimuove più le righe TD - le include nel testo per il parsing
-        # Rimuove solo pattern header specifici ma conserva i dati TD
-        lines = hz.split('\n')
-        cleaned_lines = []
-        
-        for line in lines:
-            line_clean = line.strip()
-            if not line_clean:
-                continue
-                
-            # Rimuove solo righe che sono puramente header (senza dati)
-            if re.match(r"^(?:Art\.?\s*73\s*|Numero\s+documento\s*|Data\s+documento\s*|Codice\s+destinatario\s*)$", line_clean, re.IGNORECASE):
-                continue
-                
-            # INCLUDE righe che contengono TD o dati documento
-            if (re.search(r"\bTD\d{2}\b", line_clean, re.IGNORECASE) or  # Righe con codici TD
-                re.search(r"\d{2,4}[-/]\d{1,2}[-/]\d{2,4}", line_clean) or  # Date
-                re.search(r"\b[A-Z0-9]{6,7}\b", line_clean) or  # Codici destinatario 
-                re.search(r"\bDPR\s+\d+/\d+\b", line_clean, re.IGNORECASE) or  # Pattern DPR
-                re.search(r"^\d+$", line_clean) or  # Righe con solo numeri (numero documento)
-                (len(line_clean.split()) >= 2 and re.search(r"\d", line_clean))):  # Righe con dati numerici
-                cleaned_lines.append(line_clean)
-        
-        # Combina tutte le righe di dati
-        hz_clean = " ".join(cleaned_lines)
+    # --------- Header Documento (migliorato con correzione separazione header/valori) ---------
+    header_dbg = _detect_document_header(lines)
+    documento: Dict[str, Any] = {"tipo": None, "numero": None, "data": None, "codice_destinatario": None, "art_73": None}
+    header_dbg["documento_initial"] = str(documento.copy())
+    if debug:
+        print(f"DEBUG Header detection completed, strategy: {header_dbg.get('detection_strategy')}")
+        print(f"DEBUG Header end at line {header_dbg.get('end_index')}, showing context:")
+    
+    # Mostra le righe intorno all'header per debug
+    if header_dbg.get("end_index") is not None:
+        end_idx = int(header_dbg["end_index"])
+        start_context = max(0, end_idx - 2)
+        end_context = min(len(lines), end_idx + 5)
+        for i in range(start_context, end_context):
+            marker = " --> " if i == end_idx else "     "
+            if debug:
+                print(f"DEBUG {marker}[{i:2d}]: {repr(lines[i])}")
+    
+    doc_row_text: str | None = None
+    doc_row_lines: List[str] = []
+
+    if header_dbg.get("end_index") is not None:
+        doc_row_text, doc_row_lines = _collect_document_row(lines, int(header_dbg["end_index"]), debug)
+        if debug:
+            print(f"DEBUG _collect_document_row result: text='{doc_row_text}', lines={doc_row_lines}")
+
+    # --------- Parsing riga dati del documento (con correzione separazione header multi-riga) ---------
+    if doc_row_text and doc_row_lines:
+        # Usa direttamente le righe raccolte da _collect_document_row 
+        # invece di ri-processare il testo concatenato
+        hz_clean = " ".join(doc_row_lines)
         tokens = re.findall(r"\S+", hz_clean)
 
         data_doc = None
@@ -379,24 +706,27 @@ def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
         
         # NUOVO: Controlla prima se abbiamo numeri documento multi-riga (strategia prioritaria)
         if debug:
-            print(f"DEBUG Looking for numero in collected lines: {cleaned_lines[:10]}")
+            print(f"DEBUG doc_row_lines: {doc_row_lines}")
+            print(f"DEBUG Looking for numero in collected tokens...")
         
+        # Cerca pattern numero documento nei token raccolti (esclusa tipologia e data)
         numero_candidates = []
-        for i, line in enumerate(cleaned_lines):
-            line_strip = line.strip()
-            # Escludi righe con tipologia TD già processate per tipologia
-            if re.match(r"^\s*TD\d{2}\b", line_strip, re.IGNORECASE) and not re.search(r"[A-Z]{1,4}[-/_\\]\d+", line_strip):
+        for i, line in enumerate(doc_row_lines):
+            # Escludi la tipologia TD
+            if re.match(r"^\s*TD\d{2}\b", line, re.IGNORECASE):
                 continue
             # Escludi le date
-            if re.match(r"^\s*\d{2}-\d{2}-\d{4}$", line_strip):
+            if re.match(r"^\s*\d{2}-\d{2}-\d{4}$", line.strip()):
                 continue
             # Pattern per numeri documento: prefisso + numero o solo numero lungo
-            if (re.match(r"^[A-Z0-9]{1,4}[-/_\\]?$", line_strip) or  # Prefisso come "V2-", "ABC/", "FPR_", "XYZ\"
-                re.match(r"^\d{6,}$", line_strip) or  # Numero lungo
-                re.match(r"^[A-Z0-9]{1,4}[-/_\\]*\d{3,}$", line_strip)):  # Formato completo
-                numero_candidates.append(line_strip)
+            if (re.match(r"^[A-Z0-9]{1,4}[-/_\\\\]?$", line.strip()) or  # Prefisso come "V2-", "ABC/", "FPR_", "XYZ\"
+                re.match(r"^\d{6,}$", line.strip()) or  # Numero lungo
+                re.match(r"^[A-Z0-9]{1,8}[-/_\\\\]+[A-Z0-9]+[-/_\\\\]*[A-Z0-9]*$", line.strip()) or  # Formato completo con separatori (es. 20788/2025/G1)
+                re.match(r"^[A-Z]{2,4}\s+\d{3,}[-/_\\\\]*[A-Z0-9]*$", line.strip()) or  # Formato con spazio (es. FPR 538/25)
+                re.match(r"^[A-Z]{1,3}\d{4,}$", line.strip())):  # Formato lettera+cifre (es. B002079)
+                numero_candidates.append(line.strip())
                 if debug:
-                    print(f"DEBUG Found numero candidate [{i}]: '{line_strip}'")
+                    print(f"DEBUG Found numero candidate [{i}]: '{line.strip()}'")
         
         if debug:
             print(f"DEBUG numero_candidates: {numero_candidates}")
@@ -406,9 +736,9 @@ def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
             # Se abbiamo prefisso + numero separati (tipo "V2-" + "250039161")
             prefix = numero_candidates[0]
             number = numero_candidates[1]
-            if re.match(r"^[A-Z0-9]{1,4}[-/_\\]?$", prefix) and re.match(r"^\d{6,}$", number):
+            if re.match(r"^[A-Z0-9]{1,4}[-/_\\\\]?$", prefix) and re.match(r"^\d{6,}$", number):
                 # Se il prefisso finisce con un separatore, non aggiungere spazio
-                if re.search(r"[-/_\\]$", prefix):
+                if re.search(r"[-/_\\\\]$", prefix):
                     numero = f"{prefix}{number}"
                 else:
                     numero = f"{prefix} {number}"
@@ -551,12 +881,12 @@ def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
             "numero": numero,
             "data": data_doc,
             "codice_destinatario": codice_dest,
-            "art_73": "Art. 73" if re.search(r"Art\.?\s*73", clean, re.IGNORECASE) else None,
+            "art_73": "Art. 73" if re.search(r"Art\.?\s*73", clean_text, re.IGNORECASE) else None,
         }
 
     # ---------------- Righe dettaglio ----------------
     data["righe_dettaglio"] = []
-    rows_block = re.search(r"Prezzo totale\n(.*?)RIEPILOGHI IVA E TOTALI", clean, re.DOTALL | re.IGNORECASE)
+    rows_block = re.search(r"Prezzo totale\n(.*?)RIEPILOGHI IVA E TOTALI", clean_text, re.DOTALL | re.IGNORECASE)
     if rows_block:
         pattern = re.compile(
             r"^(.*?)\s+"           # descrizione
@@ -582,17 +912,17 @@ def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
 
     # ---------------- Riepilogo importi ----------------
     data["riepilogo_importi"] = {
-        "imponibile": _to_float(_extract_group(r"Totale imponibile\s+([\d\.,]+)", clean)),
-        "imposta": _to_float(_extract_group(r"Totale imposta\s+([\d\.,]+)", clean)),
-        "totale": _to_float(_extract_group(r"Totale documento\s+([\d\.,]+)", clean)),
+        "imponibile": _to_float(_extract_group(r"Totale imponibile\s+([\d\.,]+)", clean_text)),
+        "imposta": _to_float(_extract_group(r"Totale imposta\s+([\d\.,]+)", clean_text)),
+        "totale": _to_float(_extract_group(r"Totale documento\s+([\d\.,]+)", clean_text)),
     }
 
     # ---------------- Pagamento ----------------
-    pay_m = re.search(r"Data scadenza\s+([\d\-/]+)\s+([\d\.,]+)", clean)
+    pm = re.search(r"Data scadenza\s+([\d\-/]+)\s+([\d\.,]+)", clean_text)
     data["pagamento"] = {
-        "modalita": _extract_group(r"\bMP\d{2}\s+(\w+)", clean),
-        "scadenza": pay_m.group(1) if pay_m else None,
-        "importo": _to_float(pay_m.group(2)) if pay_m else None,
+        "modalita": _extract_group(r"\bMP\d{2}\s+(\w+)", clean_text),
+        "scadenza": pm.group(1) if pm else None,
+        "importo": _to_float(pm.group(2)) if pm else None,
     }
 
     return data
