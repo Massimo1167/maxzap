@@ -646,9 +646,11 @@ def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
                 if re.match(r"^\s*\d{2}-\d{2}-\d{4}$", line.strip()):
                     continue
                 # Pattern per numeri documento: prefisso + numero o solo numero lungo
-                if (re.match(r"^[A-Z0-9]{1,4}[-/_\\]?$", line.strip()) or  # Prefisso come "V2-", "ABC/", "FPR_", "XYZ\"
+                if (re.match(r"^[A-Z0-9]{1,4}[-/_\\\\]?$", line.strip()) or  # Prefisso come "V2-", "ABC/", "FPR_", "XYZ\"
                     re.match(r"^\d{6,}$", line.strip()) or  # Numero lungo
-                    re.match(r"^[A-Z0-9]{1,4}[-/_\\]*\d{3,}$", line.strip())):  # Formato completo
+                    re.match(r"^[A-Z0-9]{1,8}[-/_\\\\]+[A-Z0-9]+[-/_\\\\]*[A-Z0-9]*$", line.strip()) or  # Formato completo con separatori (es. 20788/2025/G1)
+                    re.match(r"^[A-Z]{2,4}\s+\d{3,}[-/_\\\\]*[A-Z0-9]*$", line.strip()) or  # Formato con spazio (es. FPR 538/25)
+                    re.match(r"^[A-Z]{1,3}\d{4,}$", line.strip())):  # Formato lettera+cifre (es. B002079)
                     numero_candidates.append(line.strip())
                     if debug:
                         print(f"DEBUG Found numero candidate [{i}]: '{line.strip()}'")
@@ -704,9 +706,11 @@ def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
                     if re.match(r"^\s*\d{2}-\d{2}-\d{4}$", line.strip()):
                         continue
                     # Pattern per numeri documento: prefisso + numero o solo numero lungo
-                    if (re.match(r"^[A-Z0-9]{1,4}[-/_\\]?$", line.strip()) or  # Prefisso come "V2-", "ABC/", "FPR_", "XYZ\"
+                    if (re.match(r"^[A-Z0-9]{1,4}[-/_\\\\]?$", line.strip()) or  # Prefisso come "V2-", "ABC/", "FPR_", "XYZ\"
                         re.match(r"^\d{6,}$", line.strip()) or  # Numero lungo
-                        re.match(r"^[A-Z0-9]{1,4}[-/_\\]*\d{3,}$", line.strip())):  # Formato completo
+                        re.match(r"^[A-Z0-9]{1,8}[-/_\\\\]+[A-Z0-9]+[-/_\\\\]*[A-Z0-9]*$", line.strip()) or  # Formato completo con separatori (es. 20788/2025/G1)
+                        re.match(r"^[A-Z]{2,4}\s+\d{3,}[-/_\\\\]*[A-Z0-9]*$", line.strip()) or  # Formato con spazio (es. FPR 538/25)
+                        re.match(r"^[A-Z]{1,3}\d{4,}$", line.strip())):  # Formato lettera+cifre (es. B002079)
                         numero_candidates.append(line.strip())
                         if debug:
                             print(f"DEBUG Found numero candidate [{i}]: '{line.strip()}'")
@@ -1189,18 +1193,20 @@ def extract_invoice(pdf_path: str, debug: bool = False) -> ExtractResult:
     return ExtractResult(txt, parsed or {}, ocr_used)
 
 
-# Parser legacy per confronto (se presente): pdf_invoice.py
+# Parser legacy per confronto (se presente): pyzap/pdf_invoice.py
 try:
-    import pdf_invoice as legacy_pdf_utils  # type: ignore
+    from pyzap.pdf_invoice import parse_invoice_text as legacy_parse_invoice_text  # type: ignore
+    legacy_pdf_utils = True  # type: ignore
 except Exception:
     legacy_pdf_utils = None  # type: ignore
+    legacy_parse_invoice_text = None  # type: ignore
 
 
 def _parse_legacy_text(text: str) -> Dict[str, Any] | None:
-    if not text or legacy_pdf_utils is None:  # type: ignore
+    if not text or legacy_pdf_utils is None or legacy_parse_invoice_text is None:  # type: ignore
         return None
     try:
-        return legacy_pdf_utils.parse_invoice_text(text)  # type: ignore
+        return legacy_parse_invoice_text(text)  # type: ignore
     except Exception:
         return None
 
@@ -1295,28 +1301,28 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="OCR/parse Fatture (NUOVO) → CSV con debug header")
     parser.add_argument("pdf", nargs="*", default=[
-        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-08-05 Fattura V2- 250038010 PROGEO SCA.pdf",
-        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura 633_72 8225089597 Eurocap Petroli SpA.pdf",
         r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-21 Fattura 20788_2025_G1 DUSTY RENDERING S.R.L..pdf",
-        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-22 Fattura 1191_2025 F.LLI RICCI SRL.pdf",
         r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-23 Fattura 112505418437 HERA S.p.A..pdf",
         r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-23 Fattura 112505493391 HERA S.p.A..pdf",
-        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-23 Fattura None Bernardini Francesco.pdf",
-        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-23 Fattura V2- 250035405 PROGEO SCA.pdf",
-        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-24 Fattura V2- 250035610 PROGEO SCA.pdf",
+        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-23 Fattura 32 Bernardini Francesco.pdf",
+        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-24 Fattura 250035610 PROGEO SCA.pdf",
         r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-30 Fattura 005258882692 Enel Energia S.p.A..pdf",
         r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-30 Fattura 190_2025 OFFICINA MARTENSI S.R.L.pdf",
-        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-30 Fattura None RIVI PAOLO & C. SAS.pdf",
-        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-30 Fattura V2- 250036527 PROGEO SCA.pdf",
+        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-30 Fattura 250036527 PROGEO SCA.pdf",
+        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-30 Fattura TD01 RIVI PAOLO & C. SAS.pdf",
         r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura 00000002029 Oleodinamica Sassolese s.r.l. Unipersonale.pdf",
         r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura 217_F2025 ELETTROMILK s.r.l. Mungitura-Zootecnia-.pdf",
+        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura 250036719 PROGEO SCA.pdf",
         r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura 2632_00 EMMEDIELLE S.R.L..pdf",
+        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura 3097 COM-FER SRL.pdf",
         r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura 5503_2025 VETEMONTANA SRL.pdf",
         r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura 559_M_25 ANTONELLI E IACCONI SRL.pdf",
-        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura None COM-FER SRL.pdf",
-        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura V2- 250036719 PROGEO SCA.pdf",
+        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura 8225089597 Eurocap Petroli SpA.pdf",
+        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-07-31 Fattura B002079 GARC AMBIENTE SPA SB.pdf",
+        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-08-05 Fattura 250038010 PROGEO SCA.pdf",
         r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-08-06 Fattura 142500026594 HERACQUAMODENA S.R.L..pdf",
-        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-08-07 Fattura V2- 250038403 PROGEO SCA.pdf",
+        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-08-07 Fattura 250038403 PROGEO SCA.pdf",
+        r"C:/__Projects/__dev_Massimo/gmail/azienda.agricola/fatture/split/2025-08-12 Fattura 250039161 PROGEO SCA.pdf",
     ], help="Percorsi PDF da processare")
     parser.add_argument("-o", "--out", default="./fatture_parsed_ocr.csv", help="Percorso CSV in uscita")
     parser.add_argument("--compare-native", action="store_true",
