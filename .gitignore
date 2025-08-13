@@ -8,3 +8,4 @@ credentials*.json
 credentials.json
 credentials.json.old
 token.json
+*.pdf
