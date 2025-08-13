@@ -1,0 +1,29 @@
+Funzionalità implementate:
+
+  ✅ Debug completo: --debug (estrazione testo, parsing, token analysis)
+  ✅ Debug headers: --debug-headers (specifico solo per header DOCUMENTO)✅ Output personalizzato: -o filename.csv
+  ✅ Confronto legacy: --compare-native (con pdf_invoice_legacy.py)
+  ✅ Lista predefinita: Se non specificati file, usa lista di test
+  ✅ Supporto glob: Accetta pattern come *.pdf
+  ✅ Help completo: --help con esempi d'uso
+
+  Esempi d'uso supportati:
+  # Debug specifico file
+  python pdf_invoice_tester.py "fattura.pdf" --debug
+
+  # Debug solo headers con lista predefinita  
+  python pdf_invoice_tester.py --debug-headers
+
+  # Confronto con parser legacy
+  python pdf_invoice_tester.py *.pdf --compare-native -o results.csv
+
+  # Aiuto
+  python pdf_invoice_tester.py --help
+
+  Struttura output:
+  - Debug completo con dettagli estrazione e parsing
+  - Risultati formattati per documento (tipo, numero, data, destinatario)
+  - CSV con confronto side-by-side se richiesto
+  - Riepilogo finale con tutte le fatture processate
+
+  Il tester è pronto per l'uso e replicate tutte le funzionalità di pdf_utils_ocr.py ma usando il modulo pyzap.pdf_invoice.py! 🎯
