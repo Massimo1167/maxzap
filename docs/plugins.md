@@ -104,7 +104,7 @@ This page lists all available triggers and actions provided by PyZap.
   - `local_dir` (optional): Local directory for storage.
   - `token` (optional): OAuth bearer token used for Drive uploads.
   - `save_attachments` (optional): Download attachments, defaults to `true`.
-- `pdf_split` – Split a PDF file into smaller PDFs.
+- `split_invoice_pdf` – Split a PDF file into smaller PDFs.
   - `output_dir`: Directory where split files are written.
   - `pattern` (optional): Regular expression marking the start of a new file.
   - `name_template` (optional): Template for output filenames.

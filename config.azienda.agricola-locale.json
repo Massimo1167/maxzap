@@ -55,7 +55,7 @@
         {
           "_comment_action_pdf_split_1": "Questa action analizza un file pdf ricevuto dall'azione di prima, lo splitta in più file in base ad un pattern.",
           "_comment_action_pdf_split_2": "Se richiesto analizza ogni file splittato come fattura elettronica e popola un dizionario dal quale attingere per rinominare il file",
-          "type": "pdf_split",
+          "type": "split_invoice_pdf",
           "params": {
             "output_dir": "../gmail/azienda.agricola/fatture/split",
             "pattern": "Cedente/prestatore \\(fornitore\\)",

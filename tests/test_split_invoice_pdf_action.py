@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pyzap.plugins.pdf_split import PDFSplitAction
+from pyzap.plugins.split_invoice_pdf import SplitInvoicePdfAction
 from pyzap.utils import safe_filename
 
 
@@ -31,7 +31,7 @@ def test_pdf_split_closes_input_file(tmp_path):
     _create_pdf(pdf_path, pages=2)
     output_dir = tmp_path / "out"
 
-    action = PDFSplitAction(params={"output_dir": str(output_dir)})
+    action = SplitInvoicePdfAction(params={"output_dir": str(output_dir)})
 
     before = _count_open_files()
     result = action.execute({"pdf_path": str(pdf_path)})
@@ -48,7 +48,7 @@ def test_pdf_split_sanitizes_filename(tmp_path):
     output_dir = tmp_path / "out"
 
     template = "  inv*alid?{index}" + "x" * 150 + ".pdf  "
-    action = PDFSplitAction(params={"output_dir": str(output_dir), "name_template": template})
+    action = SplitInvoicePdfAction(params={"output_dir": str(output_dir), "name_template": template})
     result = action.execute({"pdf_path": str(pdf_path)})
 
     expected = safe_filename(template.format(index=1))

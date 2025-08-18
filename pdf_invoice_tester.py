@@ -29,10 +29,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
     from pyzap.pdf_invoice import parse_invoice_text
-    from pdf_utils_ocr import _extract_text_pdf_native  # Riusa l'estrazione testo da pdf_utils_ocr
 except ImportError as e:
-    print(f"ERRORE: Impossibile importare i moduli necessari: {e}")
-    print("Assicurati che i file pyzap/pdf_invoice.py e pdf_utils_ocr.py siano presenti")
+    print(f"ERRORE: Impossibile importare pyzap.pdf_invoice: {e}")
+    sys.exit(1)
+
+# Importa direttamente le librerie per estrazione PDF
+try:
+    from pdfminer.high_level import extract_text
+except ImportError:
+    print("ERRORE: pdfminer.six non installato. Esegui: pip install pdfminer.six")
     sys.exit(1)
 
 # Parser legacy per confronto (se disponibile)
@@ -50,6 +55,15 @@ DEFAULT_TEST_FILES = [
     "2025-07-31 Fattura 2632_00 EMMEDIELLE S.R.L..pdf",
     "2025-07-31 Fattura B002079 GARC AMBIENTE SPA SB.pdf"
 ]
+
+
+def _extract_text_pdf_native(pdf_path: str) -> str:
+    """Estrae testo dal PDF usando pdfminer.six"""
+    try:
+        return extract_text(pdf_path)
+    except Exception as e:
+        print(f"Errore nell'estrazione del testo da {pdf_path}: {e}")
+        return ""
 
 
 def extract_invoice_main(pdf_path: str, debug: bool = False, debug_headers: bool = False) -> Dict[str, Any]:

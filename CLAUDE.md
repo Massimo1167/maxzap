@@ -74,7 +74,7 @@ Plugins are auto-discovered from `pyzap/plugins/` directory:
 - `imap_archive` - Archive IMAP messages locally
 - `excel_append` - Append data to Excel workbooks with date formatting
 - `sheets_append` - Append to Google Sheets
-- `pdf_split` - Split PDFs and extract invoice data
+- `split_invoice_pdf` - Split PDFs and extract invoice data
 - `slack_notify` - Send Slack notifications
 
 ### Configuration Structure

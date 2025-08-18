@@ -536,7 +536,8 @@ def _collect_document_row(lines: List[str], header_end: int, debug: bool = False
                     re.search(r"\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4}", ln) or  # Date
                     re.search(r"^[A-Z0-9]{6,7}$", ln) or  # Codice destinatario
                     re.search(r"^[A-Z]{2,4}\s+\d+/\d+$", ln) or  # Numeri con prefisso tipo "FPR 538/25"
-                    re.search(r"^\d{4,}$", ln)):  # Numeri lunghi
+                    re.search(r"^\d{4,}$", ln) or  # Numeri lunghi
+                    re.search(r"DPR\s+\d+/\d+\s+V2-", ln)):  # Righe con V2- (importante!)
                     collected_data_lines.append(ln)
                     buf.append(ln)
                     if debug:
@@ -701,54 +702,72 @@ def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
                 return True
             return tok in {"633/72", "600/73", "600/1973"}
 
-        # ESTRAZIONE NUMERO CON STRATEGIA MIGLIORATA (multi-riga + date-anchored approach)
+        # ESTRAZIONE NUMERO CON STRATEGIA MIGLIORATA (V2- prioritario + multi-riga + date-anchored)
         numero: str | None = None
         
-        # NUOVO: Controlla prima se abbiamo numeri documento multi-riga (strategia prioritaria)
-        if debug:
-            print(f"DEBUG doc_row_lines: {doc_row_lines}")
-            print(f"DEBUG Looking for numero in collected tokens...")
-        
-        # Cerca pattern numero documento nei token raccolti (esclusa tipologia e data)
-        numero_candidates = []
-        for i, line in enumerate(doc_row_lines):
-            # Escludi la tipologia TD
-            if re.match(r"^\s*TD\d{2}\b", line, re.IGNORECASE):
-                continue
-            # Escludi le date
-            if re.match(r"^\s*\d{2}-\d{2}-\d{4}$", line.strip()):
-                continue
-            # Pattern per numeri documento: prefisso + numero o solo numero lungo
-            if (re.match(r"^[A-Z0-9]{1,4}[-/_\\\\]?$", line.strip()) or  # Prefisso come "V2-", "ABC/", "FPR_", "XYZ\"
-                re.match(r"^\d{6,}$", line.strip()) or  # Numero lungo
-                re.match(r"^[A-Z0-9]{1,8}[-/_\\\\]+[A-Z0-9]+[-/_\\\\]*[A-Z0-9]*$", line.strip()) or  # Formato completo con separatori (es. 20788/2025/G1)
-                re.match(r"^[A-Z]{2,4}\s+\d{3,}[-/_\\\\]*[A-Z0-9]*$", line.strip()) or  # Formato con spazio (es. FPR 538/25)
-                re.match(r"^[A-Z]{1,3}\d{4,}$", line.strip())):  # Formato lettera+cifre (es. B002079)
-                numero_candidates.append(line.strip())
-                if debug:
-                    print(f"DEBUG Found numero candidate [{i}]: '{line.strip()}'")
-        
-        if debug:
-            print(f"DEBUG numero_candidates: {numero_candidates}")
-        
-        # Ricostruisci il numero documento dai candidates
-        if len(numero_candidates) >= 2:
-            # Se abbiamo prefisso + numero separati (tipo "V2-" + "250039161")
-            prefix = numero_candidates[0]
-            number = numero_candidates[1]
-            if re.match(r"^[A-Z0-9]{1,4}[-/_\\\\]?$", prefix) and re.match(r"^\d{6,}$", number):
-                # Se il prefisso finisce con un separatore, non aggiungere spazio
-                if re.search(r"[-/_\\\\]$", prefix):
-                    numero = f"{prefix}{number}"
-                else:
-                    numero = f"{prefix} {number}"
-                if debug:
-                    print(f"DEBUG Combined numero from prefix+number: '{numero}'")
-        elif len(numero_candidates) == 1:
-            # Numero già formato o solo prefisso
-            numero = numero_candidates[0]
+        # PRIORITARIO: Cerca pattern V2- specifici nell'intero testo (gestisce newlines)
+        v2_match = re.search(r'\bV2[\s\-_/\\]*(\d{6,})', hz_clean)
+        if v2_match:
+            numero = f"V2-{v2_match.group(1)}"
             if debug:
-                print(f"DEBUG Single numero candidate: '{numero}'")
+                print(f"DEBUG Found V2- pattern (priority): '{numero}'")
+        
+        # SECONDO: Se non V2-, controlla altri pattern multi-riga
+        if not numero:
+            if debug:
+                print(f"DEBUG doc_row_lines: {doc_row_lines}")
+                print(f"DEBUG Looking for numero in collected tokens...")
+            
+            # Cerca pattern numero documento nei token raccolti (esclusa tipologia e data)
+            numero_candidates = []
+            for i, line in enumerate(doc_row_lines):
+                # Escludi la tipologia TD
+                if re.match(r"^\s*TD\d{2}\b", line, re.IGNORECASE):
+                    continue
+                # Escludi le date
+                if re.match(r"^\s*\d{2}-\d{2}-\d{4}$", line.strip()):
+                    continue
+                # Pattern per numeri documento: prefisso + numero o solo numero lungo
+                if (re.match(r"^[A-Z0-9]{1,4}[-/_\\\\]?$", line.strip()) or  # Prefisso come "V2-", "ABC/", "FPR_", "XYZ\"
+                    re.match(r"^\d{6,}$", line.strip()) or  # Numero lungo
+                    re.match(r"^[A-Z0-9]{1,8}[-/_\\\\]+[A-Z0-9]+[-/_\\\\]*[A-Z0-9]*$", line.strip()) or  # Formato completo con separatori (es. 20788/2025/G1)
+                    re.match(r"^[A-Z]{2,4}\s+\d{3,}[-/_\\\\]*[A-Z0-9]*$", line.strip()) or  # Formato con spazio (es. FPR 538/25)
+                    re.match(r"^[A-Z]{1,3}\d{4,}$", line.strip())):  # Formato lettera+cifre (es. B002079)
+                    numero_candidates.append(line.strip())
+                    if debug:
+                        print(f"DEBUG Found numero candidate [{i}]: '{line.strip()}'")
+            
+            if debug:
+                print(f"DEBUG numero_candidates: {numero_candidates}")
+            
+            # Ricostruisci il numero documento dai candidates
+            if len(numero_candidates) >= 2:
+                # Se abbiamo prefisso + numero separati (tipo "V2-" + "250039161")
+                prefix = numero_candidates[0]
+                number = numero_candidates[1]
+                if re.match(r"^[A-Z0-9]{1,4}[-/_\\\\]?$", prefix) and re.match(r"^\d{6,}$", number):
+                    # Se il prefisso finisce con un separatore, non aggiungere spazio
+                    if re.search(r"[-/_\\\\]$", prefix):
+                        numero = f"{prefix}{number}"
+                    else:
+                        numero = f"{prefix} {number}"
+                    if debug:
+                        print(f"DEBUG Combined numero from prefix+number: '{numero}'")
+            elif len(numero_candidates) == 1:
+                # Numero già formato o solo prefisso - CONTROLLA se non è già coperto da V2
+                candidate = numero_candidates[0]
+                if not candidate.isdigit() or not v2_match:  # Evita duplicati V2
+                    numero = candidate
+                    if debug:
+                        print(f"DEBUG Single numero candidate: '{numero}'")
+            
+            # TERZO: Cerca anche pattern FPR XXX/XX nel testo completo
+            if not numero:
+                fpr_match = re.search(r'\bFPR\s+\d+/\d+', hz_clean)
+                if fpr_match:
+                    numero = fpr_match.group(0)
+                    if debug:
+                        print(f"DEBUG Found FPR pattern: '{numero}'")
         
         # Se non trovato con metodo multi-riga, usa approccio date-anchored classico
         if not numero and date_idx is not None:
@@ -918,11 +937,74 @@ def parse_invoice_text(text: str, debug: bool = False) -> Dict[str, Any]:
     }
 
     # ---------------- Pagamento ----------------
-    pm = re.search(r"Data scadenza\s+([\d\-/]+)\s+([\d\.,]+)", clean_text)
+    
+    # MODALITA PAGAMENTO - gestione di entrambi i layout (PyPDF2 inline e PDFMiner multiline)
+    modalita = None
+    
+    # Metodo 1: Layout inline (PyPDF2) - "MP12 RIBA Data scadenza"
+    mp_inline = re.search(r"\bMP\d{2}\s+([A-Z][a-zA-Z]+)", clean_text)
+    if mp_inline:
+        candidate = mp_inline.group(1)
+        # Verifica che non sia una parola generica come "Data", "Allegati", etc.
+        if candidate not in ['Data', 'Allegati', 'IBAN', 'Sconto', 'ABI', 'Codice', 'CAB']:
+            modalita = candidate
+    
+    # Metodo 2: Layout multiline (PDFMiner) - cerca modalità prima di MP##
+    if not modalita:
+        # Pattern specifico per PDFMiner: cerca modalità nell'area "Modalit� pagamento"
+        mp_section = re.search(r'Modalit.\s*pagamento.*?MP\d{2}', clean_text, re.DOTALL | re.IGNORECASE)
+        if mp_section:
+            section_text = mp_section.group(0)
+            # Cerca modalità di pagamento nota in questa sezione
+            payment_types = ['RIBA', 'SEPA Direct Debit', 'SEPA', 'Bonifico', 'Domiciliazione', 'Contanti', 'RID', 'Assegno']
+            for ptype in payment_types:
+                if re.search(r'\b' + re.escape(ptype), section_text, re.IGNORECASE):
+                    modalita = ptype
+                    break
+    
+    # SCADENZA E IMPORTO - gestione di entrambi i layout
+    scadenza = None
+    importo = None
+    
+    # Metodo 1: Layout inline (PyPDF2) - "Data scadenza 10-09-2025 1.000,50"
+    pm_inline = re.search(r"Data scadenza\s+([\d\-/]+)\s+([\d\.,]+)", clean_text)
+    if pm_inline:
+        scadenza = pm_inline.group(1)
+        importo = _to_float(pm_inline.group(2))
+    
+    # Metodo 2: Layout multiline (PDFMiner) - scadenza e importo separati
+    if not scadenza:
+        # Cerca scadenza separatamente
+        scadenza_match = re.search(r"Data scadenza\s+([\d\-/]+)", clean_text)
+        if scadenza_match:
+            scadenza = scadenza_match.group(1)
+            
+            # Cerca importo nella sezione pagamento dopo la scadenza
+            # Strategia 1: Cerca nella sezione MP## estesa (include anche dopo Allegati)
+            mp_section_extended = re.search(r'MP\d{2}.*?(?=\x0c|$)', clean_text, re.DOTALL | re.IGNORECASE)
+            if mp_section_extended:
+                section_text = mp_section_extended.group(0)
+                # Cerca importi nella sezione (formato italiano con virgola)
+                amounts = re.findall(r'(-?\d{1,3}(?:\.\d{3})*,\d{2})', section_text)
+                if amounts:
+                    # Prende l'ultimo importo nella sezione (più probabile sia quello di pagamento)
+                    importo = _to_float(amounts[-1])
+            
+            # Strategia 2: Se non trovato, cerca importo vicino alla data scadenza
+            if not importo:
+                # Cerca nell'area intorno alla data scadenza
+                scadenza_pos = clean_text.find(scadenza)
+                if scadenza_pos >= 0:
+                    # Estrai contesto dopo la scadenza (200 caratteri)
+                    context_after = clean_text[scadenza_pos:scadenza_pos + 200]
+                    amounts_near = re.findall(r'(-?\d{1,3}(?:\.\d{3})*,\d{2})', context_after)
+                    if amounts_near:
+                        importo = _to_float(amounts_near[0])
+    
     data["pagamento"] = {
-        "modalita": _extract_group(r"\bMP\d{2}\s+(\w+)", clean_text),
-        "scadenza": pm.group(1) if pm else None,
-        "importo": _to_float(pm.group(2)) if pm else None,
+        "modalita": modalita,
+        "scadenza": scadenza,
+        "importo": importo,
     }
 
     return data

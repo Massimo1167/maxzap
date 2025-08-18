@@ -5,7 +5,7 @@
       "trigger": {"type": "gmail_poll", "query": "label:invoices", "token_file": "token.json"},
       "actions": [
         {"type": "gmail_archive", "params": {"local_dir": "./archive", "attachment_types": [".pdf"]}},
-        {"type": "pdf_split", "params": {
+        {"type": "split_invoice_pdf", "params": {
           "output_dir": "./split",
           "pattern": "Cedente/prestatore",
           "parse_invoice": true,

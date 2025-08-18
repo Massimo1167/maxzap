@@ -10,6 +10,13 @@ from ..pdf_invoice import extract_table_row, parse_invoice_text
 from ..formatter import parse_date
 from ..utils import safe_filename
 
+# Importa pdfminer per estrazione testo migliorata
+try:
+    from pdfminer.high_level import extract_text
+    PDFMINER_AVAILABLE = True
+except ImportError:
+    PDFMINER_AVAILABLE = False
+
 
 def _flatten_dict(data: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
     """Return a flat dict joining nested keys with underscores."""
@@ -23,7 +30,41 @@ def _flatten_dict(data: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
     return flat
 
 
-class PDFSplitAction(BaseAction):
+def _extract_text_from_writer(writer, pdf_path: str, temp_dir: str) -> str:
+    """Estrae testo dal PdfWriter usando pdfminer per parsing accurato"""
+    if not PDFMINER_AVAILABLE:
+        # Fallback: estrai testo dalle pagine del writer usando PyPDF2
+        full_text = ""
+        for page in writer.pages:
+            full_text += page.extract_text() or ""
+        return full_text
+    
+    # Usa pdfminer: salva temporaneamente il PDF e leggi con pdfminer
+    import tempfile
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False, dir=temp_dir) as temp_file:
+            writer.write(temp_file)
+            temp_path = temp_file.name
+        
+        # Estrai con pdfminer
+        text = extract_text(temp_path)
+        
+        # Rimuovi file temporaneo
+        try:
+            os.unlink(temp_path)
+        except Exception:
+            pass
+            
+        return text
+    except Exception:
+        # Fallback a PyPDF2 se c'è un errore
+        full_text = ""
+        for page in writer.pages:
+            full_text += page.extract_text() or ""
+        return full_text
+
+
+class SplitInvoicePdfAction(BaseAction):
     """Split a PDF file into smaller PDFs."""
 
     def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -31,7 +72,7 @@ class PDFSplitAction(BaseAction):
             from PyPDF2 import PdfReader, PdfWriter  # type: ignore
         except ImportError as exc:  # pragma: no cover - dependency missing
             raise RuntimeError(
-                "pdf_split action requires the 'PyPDF2' package. Install it with 'pip install PyPDF2'."
+                "split_invoice_pdf action requires the 'PyPDF2' package. Install it with 'pip install PyPDF2'."
             ) from exc
 
         pdf_path = data.get("pdf_path")
@@ -70,6 +111,7 @@ class PDFSplitAction(BaseAction):
                 if pattern and re.search(pattern, text) and writer:
                     invoice_data = None
                     if parse_invoice:
+                        # TEMPORANEO: torna al comportamento originale per evitare regressioni
                         invoice_data = parse_invoice_text(chunk_text)
                         flat = _flatten_dict(invoice_data)
                         for k, v in flat.items():

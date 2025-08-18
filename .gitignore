@@ -9,3 +9,4 @@ credentials.json
 credentials.json.old
 token.json
 *.pdf
+*.xlxs

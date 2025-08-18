@@ -27,3 +27,4 @@ Funzionalità implementate:
   - Riepilogo finale con tutte le fatture processate
 
   Il tester è pronto per l'uso e replicate tutte le funzionalità di pdf_utils_ocr.py ma usando il modulo pyzap.pdf_invoice.py! 🎯
+

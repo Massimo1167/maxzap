@@ -98,7 +98,7 @@ metadata into spreadsheet appenders:
       }
     },
     {"type": "excel_append", "params": {"file": "log.xlsm"}},
-    {"type": "pdf_split", "params": {"output_dir": "./split"}}
+    {"type": "split_invoice_pdf", "params": {"output_dir": "./split"}}
   ]
 }
 ```
@@ -118,7 +118,7 @@ be appended in one execution. Date fields can be formatted with the
 }
 ```
 
-`pdf_split` will use the `attachment_paths` field from `gmail_archive` when
+`split_invoice_pdf` will use the `attachment_paths` field from `gmail_archive` when
 `pdf_path` is not provided.
 
 The same concept works with `imap_archive` in place of `gmail_archive` and the
@@ -150,7 +150,7 @@ Related actions can modify Excel files or work with row data:
 * `file_create` &ndash; save row data to a text, JSON or CSV file.
 * `attachment_download` &ndash; download files referenced in a row and optionally
   rename them based on placeholders.
-* `pdf_split` &ndash; split a PDF into separate files using a text pattern and
+* `split_invoice_pdf` &ndash; split a PDF into separate files using a text pattern and
   naming template. Filenames are automatically sanitised to remove characters
   that are not allowed by the operating system and are truncated to keep paths
   reasonably short. If `pdf_path` is omitted it uses the first

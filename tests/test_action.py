@@ -1078,13 +1078,13 @@ def _setup_pypdf(monkeypatch, texts=None):
     monkeypatch.setitem(sys.modules, 'PyPDF2', pypdf)
 
 
-def test_pdf_split(monkeypatch, tmp_path):
+def test_split_invoice_pdf(monkeypatch, tmp_path):
     _setup_pypdf(monkeypatch)
     import importlib
 
-    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.import_module('pyzap.plugins.split_invoice_pdf')
     module = importlib.reload(module)
-    action_cls = module.PDFSplitAction
+    action_cls = module.SplitInvoicePdfAction
 
     src = tmp_path / 'src.pdf'
     src.write_bytes(b'data')
@@ -1098,13 +1098,13 @@ def test_pdf_split(monkeypatch, tmp_path):
     assert result['files'] == [str(f) for f in files]
 
 
-def test_pdf_split_missing_fields(monkeypatch, tmp_path):
+def test_split_invoice_pdf_missing_fields(monkeypatch, tmp_path):
     _setup_pypdf(monkeypatch)
     import importlib
 
-    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.import_module('pyzap.plugins.split_invoice_pdf')
     module = importlib.reload(module)
-    action_cls = module.PDFSplitAction
+    action_cls = module.SplitInvoicePdfAction
 
     src = tmp_path / 'src.pdf'
     src.write_bytes(b'data')
@@ -1119,16 +1119,16 @@ def test_pdf_split_missing_fields(monkeypatch, tmp_path):
     assert result['files'] == [str(f) for f in files]
 
 
-def test_pdf_split_regex_fields(monkeypatch, tmp_path):
+def test_split_invoice_pdf_regex_fields(monkeypatch, tmp_path):
     texts = [
         'start Numero\n documento V2-\n250035405 Data\n documento 01/01/2023 Denominazione: ACME'
     ]
     _setup_pypdf(monkeypatch, texts=texts)
     import importlib
 
-    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.import_module('pyzap.plugins.split_invoice_pdf')
     module = importlib.reload(module)
-    action_cls = module.PDFSplitAction
+    action_cls = module.SplitInvoicePdfAction
 
     src = tmp_path / 'src.pdf'
     src.write_bytes(b'data')
@@ -1156,16 +1156,16 @@ def test_pdf_split_regex_fields(monkeypatch, tmp_path):
     assert result['records'][0]['data_documento'] == '01/01/2023'
 
 
-def test_pdf_split_sanitized_filename(monkeypatch, tmp_path):
+def test_split_invoice_pdf_sanitized_filename(monkeypatch, tmp_path):
     text = (
         'start Nome file con caratteri :<>| e una lunghezza molto ' + 'x' * 150
     )
     _setup_pypdf(monkeypatch, texts=[text])
     import importlib
 
-    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.import_module('pyzap.plugins.split_invoice_pdf')
     module = importlib.reload(module)
-    action_cls = module.PDFSplitAction
+    action_cls = module.SplitInvoicePdfAction
 
     src = tmp_path / 'src.pdf'
     src.write_bytes(b'data')
@@ -1618,7 +1618,7 @@ def test_parse_invoice_header_words_split():
     assert data['documento']['codice_destinatario'] is None
 
 
-def test_pdf_split_parse_invoice(monkeypatch, tmp_path):
+def test_split_invoice_pdf_parse_invoice(monkeypatch, tmp_path):
     text = (
         'start Cedente/prestatore (fornitore)\n'
         'IVA: 12345678901\n'
@@ -1636,9 +1636,9 @@ def test_pdf_split_parse_invoice(monkeypatch, tmp_path):
     _setup_pypdf(monkeypatch, texts=[text])
     import importlib
 
-    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.import_module('pyzap.plugins.split_invoice_pdf')
     module = importlib.reload(module)
-    action_cls = module.PDFSplitAction
+    action_cls = module.SplitInvoicePdfAction
 
     src = tmp_path / 'src.pdf'
     src.write_bytes(b'data')
@@ -1660,7 +1660,7 @@ def test_pdf_split_parse_invoice(monkeypatch, tmp_path):
     assert result['records'][0]['invoice']['documento']['numero'] == '123'
 
 
-def test_pdf_split_parse_invoice_date_format(monkeypatch, tmp_path):
+def test_split_invoice_pdf_parse_invoice_date_format(monkeypatch, tmp_path):
     text = (
         'start Cedente/prestatore (fornitore)\n'
         'Denominazione: Fornitore SRL\n'
@@ -1673,9 +1673,9 @@ def test_pdf_split_parse_invoice_date_format(monkeypatch, tmp_path):
     _setup_pypdf(monkeypatch, texts=[text])
     import importlib
 
-    module = importlib.import_module('pyzap.plugins.pdf_split')
+    module = importlib.import_module('pyzap.plugins.split_invoice_pdf')
     module = importlib.reload(module)
-    action_cls = module.PDFSplitAction
+    action_cls = module.SplitInvoicePdfAction
 
     src = tmp_path / 'src.pdf'
     src.write_bytes(b'data')
