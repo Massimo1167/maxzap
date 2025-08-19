@@ -1,0 +1,118 @@
+{
+  "admin_email": "admin@example.com",
+  "workflows": [
+    {
+      "id": "progeo-delivery-note-processing",
+      "description": "Monitora e processa delivery note Progeo da email",
+      "enabled": true,
+      "trigger": {
+        "type": "gmail_poll",
+        "params": {
+          "credentials_file": "credentials.json",
+          "token_file": "token.json",
+          "query": "from:progeo.it subject:(delivery OR \"bolla di consegna\" OR DDT) has:attachment filename:pdf",
+          "max_results": 10,
+          "mark_as_read": true
+        }
+      },
+      "actions": [
+        {
+          "type": "gmail_archive",
+          "description": "Scarica allegati PDF delle delivery note",
+          "params": {
+            "download_attachments": true,
+            "download_dir": "./downloads/progeo_delivery_notes",
+            "filename_pattern": "{date}_{subject}_{attachment_name}",
+            "attachment_types": [".pdf"]
+          }
+        },
+        {
+          "type": "progeo_delivery_note",
+          "description": "Estrae dati dalle delivery note Progeo",
+          "params": {
+            "pdf_path": "{downloaded_file}",
+            "output_dir": "./output/progeo_delivery_notes",
+            "debug": true
+          }
+        },
+        {
+          "type": "excel_append",
+          "description": "Aggiunge i dati estratti al registro delivery note",
+          "params": {
+            "file_path": "./registro_delivery_note_progeo.xlsx",
+            "sheet_name": "Delivery Notes",
+            "data_mapping": {
+              "Data Documento": "{documento_data}",
+              "Numero DDT": "{documento_numero}",
+              "Tipo Documento": "{documento_tipo}",
+              "Pagina": "{documento_pagina}",
+              
+              "Mittente": "{mittente_denominazione}",
+              "Mittente P.IVA": "{mittente_piva}",
+              "Mittente Indirizzo": "{mittente_indirizzo}",
+              "Mittente Città": "{mittente_citta}",
+              
+              "Destinatario": "{destinatario_denominazione}",
+              "Destinatario P.IVA": "{destinatario_piva}",
+              "Codice Cliente": "{destinatario_codice_cliente}",
+              "Destinatario Indirizzo": "{destinatario_indirizzo}",
+              "Destinatario Città": "{destinatario_citta}",
+              
+              "Vettore": "{trasporto_vettore}",
+              "Data Ritiro": "{trasporto_data_ritiro}",
+              "Ora Ritiro": "{trasporto_ora_ritiro}",
+              "Peso Netto (Kg)": "{trasporto_peso_netto_kg}",
+              "Aspetto Esteriore": "{trasporto_aspetto_esteriore}",
+              
+              "Numero Ordine": "{numero_ordine}",
+              "Riferimento Cliente": "{riferimento_ordine_cliente}",
+              "Riferimento Carico": "{riferimento_carico}",
+              "Metodo Pagamento": "{metodo_pagamento}",
+              "Causale": "{causale}",
+              
+              "N. Articoli": "{numero_articoli}",
+              "Articoli Descrizione": "{articoli_descrizione}",
+              "Peso Totale Articoli": "{peso_totale_articoli}",
+              
+              "File PDF": "{pdf_file_path}",
+              "Parser Version": "{parser_version}",
+              "Data Elaborazione": "{current_datetime}"
+            }
+          }
+        },
+        {
+          "type": "slack_notify",
+          "description": "Notifica elaborazione delivery note",
+          "params": {
+            "webhook_url": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+            "message": "📦 Nuova delivery note Progeo processata:\n• DDT: {documento_numero}\n• Data: {documento_data}\n• Destinatario: {destinatario_denominazione}\n• Articoli: {numero_articoli}\n• Peso: {peso_totale_articoli} TN",
+            "channel": "#logistics"
+          }
+        }
+      ]
+    },
+    {
+      "id": "progeo-delivery-note-folder-watch",
+      "description": "Monitora cartella per nuove delivery note Progeo",
+      "enabled": false,
+      "trigger": {
+        "type": "excel_watch",
+        "params": {
+          "watch_folder": "./incoming/progeo_delivery_notes",
+          "file_pattern": "*.pdf",
+          "check_interval": 30
+        }
+      },
+      "actions": [
+        {
+          "type": "progeo_delivery_note",
+          "params": {
+            "pdf_path": "{file_path}",
+            "output_dir": "./output/progeo_delivery_notes",
+            "debug": false
+          }
+        }
+      ]
+    }
+  ]
+}

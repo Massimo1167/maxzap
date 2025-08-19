@@ -1,0 +1,85 @@
+{
+  "documento": {
+    "numero": "BB25-000264",
+    "data": "03/01/25",
+    "tipo": "DDT - Documento di Trasporto",
+    "pagina": "1/2"
+  },
+  "mittente": {
+    "denominazione": "PROGEO SCA",
+    "indirizzo": "VIA ASSEVERATI, 1",
+    "cap": "42122",
+    "citta": "Reggio Emilia",
+    "provincia": "RE",
+    "p_iva": "IT00127250355"
+  },
+  "destinatario": {
+    "denominazione": "AZIENDA AGRICO LA",
+    "indirizzo": "VIA POSSESSIONE 1 PUIANELLO",
+    "cap": "41053",
+    "citta": "MARANELLO",
+    "provincia": "MO",
+    "p_iva": "02033850369",
+    "codice_fiscale": "02033850369",
+    "codice_cliente": "C551818"
+  },
+  "trasporto": {
+    "peso_netto_kg": 29590.0,
+    "data_ritiro": "03/01/25",
+    "ora_ritiro": "09:34",
+    "vettore": "MOVITRANS LINE SOCIETA' COOPERATIVA | VIA DI VITTORIO, 20 41011 | CAMPOGALLIANO MO 00177780368 | CANOVI GIULIANO (MOVITRANS) VIA 8 MARZO, 11",
+    "tipo_trasporto": "SFUSO",
+    "aspetto_esteriore": "Vettore F.co Arrivo",
+    "trasporto_a_cura": "Aspetto Esteriore dei Beni"
+  },
+  "articoli": [
+    {
+      "categoria": "14",
+      "codice": "0378399",
+      "descrizione": "ORO FEED ENERGY PELLET SFUSO* | MANGIME COMPLEMENTARE PER VACCHE DA LATTE | MANGIME INTEGRATO",
+      "lotto": "R5/041/01/5",
+      "quantita": 2.98,
+      "unita_misura": "TN"
+    },
+    {
+      "categoria": "14",
+      "codice": "0604899",
+      "descrizione": "COMPLETION DRY TECH PELLET SFUSO | MANGIME COMPLEMENTARE PER VACCHE IN ASCIUTTA | MANGIME INTEGRATO",
+      "lotto": "R5/042/01/5",
+      "quantita": 2.97,
+      "unita_misura": "TN"
+    },
+    {
+      "categoria": "14",
+      "codice": "0670999",
+      "descrizione": "MILK 15-48 PELLET SFUSO* | MANGIME COMPLEMENTARE PER VACCHE DA LATTE | MANGIME INTEGRATO",
+      "lotto": "R5/043/01/5",
+      "quantita": 3.13,
+      "unita_misura": "TN"
+    },
+    {
+      "categoria": "14",
+      "codice": "0867299",
+      "descrizione": "PR 17-40 RUMEN PELLET SFUSO | MANGIME COMPLEMENTARE PER VACCHE DA LATTE | MANGIME INTEGRATO",
+      "lotto": "R5/044/01/5",
+      "quantita": 15.19,
+      "unita_misura": "TN"
+    },
+    {
+      "categoria": "14",
+      "codice": "0977899",
+      "descrizione": "MANZA 100 PELLET SFUSO | MANGIME COMPLEMENTARE PER VITELLE E MANZE | MANGIME INTEGRATO",
+      "lotto": "R5/045/01/5",
+      "quantita": 5.32,
+      "unita_misura": "TN"
+    }
+  ],
+  "note": {
+    "causale": "BB",
+    "condizioni_vendita": "CONDIZIONI DI VENDITA: Trascorse 24 ore dalla consegna della merce non si accettano reclami. IL SOTTOSCRITTO ACCETTA LE CONDIZIONI A FIANCO RIPORTATE E",
+    "numero_ordine": "374138",
+    "riferimento_ordine_cliente": "Magazzino",
+    "riferimento_carico": "PG24-35904",
+    "metodo_pagamento": "Ricevuta bancaria-60 giorni Data fattura fine mese"
+  }
+}
